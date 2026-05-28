@@ -74,3 +74,53 @@ jobs:
             dist-release/*.zip
             dist-release/*.tar.gz
           generate_release_notes: true
+
+  windows-setup:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: ver
+        shell: pwsh
+        run: |
+          $ver = "${{ inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($ver)) {
+            $ref = "${env:GITHUB_REF_NAME}"
+            if ($ref.StartsWith("v")) { $ver = $ref.Substring(1) } else { $ver = $ref }
+          }
+          if ([string]::IsNullOrWhiteSpace($ver)) { throw "version missing" }
+          "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y
+          $paths = @(
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe"
+          )
+          foreach ($p in $paths) { if (Test-Path $p) { Write-Host "ISCC=$p"; exit 0 } }
+          throw "ISCC.exe not found after install"
+
+      - name: Build Setup.exe (no signing, entrypoints compiled)
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+          $bash = "C:\Program Files\Git\bin\bash.exe"
+          if (!(Test-Path $bash)) { $bash = "bash.exe" }
+          .\installer\windows\one_click.ps1 `
+            -Version "${{ steps.ver.outputs.version }}" `
+            -IsccPath $iscc `
+            -BuildReleasePack `
+            -BashPath $bash `
+            -CompileEntrypoints
+
+      - name: Upload Setup.exe to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-release/*-Setup.exe

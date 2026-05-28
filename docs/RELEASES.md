@@ -32,7 +32,16 @@ GitHub Actions 会自动生成并上传：
 
 ## 2. 维护者：模型包如何挂到同一个 Release
 
-建议把模型打成一个 zip（目录结构保持与 `data/models/` 一致）：
+建议把模型打成一个 zip（目录结构保持与 `data/models/` 一致）。仓库已提供脚本：
+
+```bash
+BONEMET_VERSION=0.2.1 make models-zip
+```
+
+产物：
+- `dist-release/BoneMet-Models-0.2.1.zip`
+
+zip 内部结构：
 
 ```
 data/models/
@@ -45,7 +54,11 @@ data/models/
 zip 命名建议：
 - `BoneMet-Models-0.2.1.zip`（或包含模型版本号）
 
-然后把该 zip **作为 Release asset 上传**。
+然后把该 zip **作为 Release asset 上传**：
+
+```bash
+scripts/upload_release_asset.sh v0.2.1 dist-release/BoneMet-Models-0.2.1.zip
+```
 
 > 备注：模型 zip 不放入 git 历史，避免仓库膨胀与清理困难。
 

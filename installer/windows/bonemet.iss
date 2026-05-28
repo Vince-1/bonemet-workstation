@@ -44,7 +44,7 @@ PrivilegesRequired=lowest
 
 [Languages]
 ; Some Inno Setup installs may not include all language files. Fall back to Default.isl.
-#ifexist "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
+#ifexist "compiler:Languages\ChineseSimplified.isl"
 Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 #else
 Name: "en"; MessagesFile: "compiler:Default.isl"

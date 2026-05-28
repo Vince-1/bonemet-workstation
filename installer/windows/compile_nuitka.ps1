@@ -23,11 +23,27 @@ $ErrorActionPreference = "Stop"
 New-Item -ItemType Directory -Force -Path ".\bin" | Out-Null
 
 function Ensure-Nuitka([string]$Py) {
+  function Ensure-Pip([string]$P) {
+    try {
+      & $P -m pip --version | Out-Null
+      return
+    } catch {
+      $gp = ".\\python\\get-pip.py"
+      if (Test-Path $gp) {
+        Write-Host "==> Bootstrapping pip (get-pip.py)..." -ForegroundColor Cyan
+        & $P $gp
+      } else {
+        throw "pip not available and get-pip.py not found at $gp"
+      }
+    }
+  }
+
   try {
     & $Py -c "import nuitka" | Out-Null
     return
   } catch {
     Write-Host "==> Installing Nuitka..." -ForegroundColor Cyan
+    Ensure-Pip $Py
     & $Py -m pip install -U pip | Out-Null
     & $Py -m pip install -U nuitka zstandard
   }

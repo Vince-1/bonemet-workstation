@@ -3,7 +3,7 @@ export PYTHONPATH := $(ROOT)packages:$(ROOT)
 
 .PHONY: install install-models setup-demo api worker web check dev night-batch export-demo rebuild-index \
 	install-desktop launch build-web release-pack release-pack-windows release-pack-all convert-detect-onnx \
-	windows-installer clean-build
+	windows-installer clean-build models-zip
 
 install:
 	pip install -r requirements.txt
@@ -11,6 +11,9 @@ install:
 
 install-models:
 	bash scripts/install_models.sh
+
+models-zip:
+	BONEMET_VERSION=$${BONEMET_VERSION:-0.2.0} bash scripts/build_models_zip.sh
 
 convert-detect-onnx:
 	python scripts/convert_detect_pt_to_onnx.py --pt "$$BONEMET_DETECT_PT" --out data/models/detect/v1/model.onnx --imgsz 1280 --opset 12
