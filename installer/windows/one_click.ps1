@@ -20,7 +20,7 @@ Param(
   [Parameter(Mandatory=$true)][string]$Version,
   [Parameter(Mandatory=$true)][string]$IsccPath,
   [switch]$BuildReleasePack = $false,
-  [switch]$CompileEntrypoints = $true,
+  [switch]$CompileEntrypoints = $false,
   [string]$BashPath = "bash.exe",
   [string]$Signtool = "signtool.exe",
   [string]$PfxPath = "",
