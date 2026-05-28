@@ -101,7 +101,73 @@ stage_platform() {
   mkdir -p "$stage"
 
   echo "    复制程序文件…"
-  rsync -a "${RSYNC_EXCLUDE[@]}" "$ROOT/" "$stage/"
+  if [[ "$platform" == "windows" ]]; then
+    # On Windows runners, rsync may interpret drive-letter paths as "remote:".
+    # Use a portable python copier instead.
+    python3 - "$ROOT" "$stage" <<'PY'
+import fnmatch
+import os
+import shutil
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1]).resolve()
+dst = Path(sys.argv[2]).resolve()
+
+exclude = {
+    ".git",
+    ".venv",
+    "node_modules",
+    "dist-release",
+    "data/cases",
+    "data/incoming",
+    "data/export",
+    "data/logs",
+    "data/models",
+    "__pycache__",
+    ".pytest_cache",
+}
+exclude_globs = ["*.pyc"]
+
+def should_skip(rel: Path) -> bool:
+    s = rel.as_posix()
+    if s in exclude:
+        return True
+    # directory prefix match for excluded directories
+    for p in exclude:
+        if s == p or s.startswith(p + "/"):
+            return True
+    for g in exclude_globs:
+        if fnmatch.fnmatch(rel.name, g):
+            return True
+    return False
+
+for root, dirs, files in os.walk(src):
+    root_p = Path(root)
+    rel_root = root_p.relative_to(src)
+    if rel_root != Path(".") and should_skip(rel_root):
+        dirs[:] = []
+        continue
+    # filter dirs in-place
+    kept_dirs = []
+    for d in dirs:
+        rp = (rel_root / d)
+        if should_skip(rp):
+            continue
+        kept_dirs.append(d)
+    dirs[:] = kept_dirs
+
+    out_dir = dst / rel_root
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        rp = rel_root / f
+        if should_skip(rp):
+            continue
+        shutil.copy2(root_p / f, out_dir / f)
+PY
+  else
+    rsync -a "${RSYNC_EXCLUDE[@]}" "$ROOT/" "$stage/"
+  fi
 
   mkdir -p "$stage/data/cases" "$stage/data/queue" "$stage/data/logs"
 
