@@ -77,15 +77,6 @@ rc=$?
 if [[ "$rc" == "2" ]]; then
   echo "==> 从训练源路径安装模型 (install_models.sh)"
   BONEMET_DATA_ROOT="$TARGET_DATA" bash "$ROOT/scripts/install_models.sh"
-  V4_SRC="${BONEMET_BONE_V4_SRC:-$ROOT/data/models/bone_seg/v4}"
-  if [[ -f "$V4_SRC/Big.onnx" ]]; then
-    mkdir -p "$TARGET_DATA/models/bone_seg/v4"
-    cp -f "$V4_SRC/Big.onnx" "$V4_SRC/Rib.onnx" "$V4_SRC/BigPlans.json" "$V4_SRC/RibPlans.json" \
-      "$TARGET_DATA/models/bone_seg/v4/"
-    if [[ -f "$ROOT/data/models/registry.yaml" ]]; then
-      cp -f "$ROOT/data/models/registry.yaml" "$TARGET_DATA/models/registry.yaml"
-    fi
-  fi
   export PYTHONPATH="$ROOT/packages:$ROOT"
   python3 -c "
 from pathlib import Path

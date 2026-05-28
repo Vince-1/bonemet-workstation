@@ -16,7 +16,7 @@ models-zip:
 	BONEMET_VERSION=$${BONEMET_VERSION:-0.2.0} bash scripts/build_models_zip.sh
 
 convert-detect-onnx:
-	python scripts/convert_detect_pt_to_onnx.py --pt "$$BONEMET_DETECT_PT" --out data/models/detect/v1/model.onnx --imgsz 1280 --opset 12
+	python scripts/convert_detect_pt_to_onnx.py --pt "$$BONEMET_DETECT_PT" --out data/models/detect/model.onnx --imgsz 1280 --opset 12
 
 # Windows：生成 Setup.exe（安装器）+ 可选 Nuitka 编译入口
 # 说明见 installer/windows/

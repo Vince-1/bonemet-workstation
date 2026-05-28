@@ -3,7 +3,7 @@
 This script is intended for *packaging time* (developer machine / CI) only.
 Runtime for bonemet-workstation is ONNXRuntime-only and does NOT require torch/ultralytics.
 
-Output: data/models/detect/v1/model.onnx (with NMS when supported by exporter)
+Output: data/models/detect/model.onnx (with NMS when supported by exporter)
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ def main() -> int:
     ap.add_argument("--pt", required=True, help="Path to best.pt")
     ap.add_argument(
         "--out",
-        default="data/models/detect/v1/model.onnx",
-        help="Output ONNX path (default: data/models/detect/v1/model.onnx)",
+        default="data/models/detect/model.onnx",
+        help="Output ONNX path (default: data/models/detect/model.onnx)",
     )
     ap.add_argument("--imgsz", type=int, default=1280, help="Export image size")
     ap.add_argument("--opset", type=int, default=12, help="ONNX opset version")

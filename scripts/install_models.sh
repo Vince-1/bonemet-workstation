@@ -10,7 +10,7 @@ DATA="${BONEMET_DATA_ROOT:-$ROOT/data}"
 DETECT_ONNX_SRC="${BONEMET_DETECT_ONNX_SRC:-/home/wenhao/trains/artifacts/models/detect_v1/model.onnx}"
 ONNX_SRC="${BONEMET_ONNX_SRC:-/home/wenhao/RadiSmart/radismart/bone/bone_tumor_2d/data}"
 
-mkdir -p "$DATA/models/detect/v1" "$DATA/models/bone_seg/v1"
+mkdir -p "$DATA/models/detect" "$DATA/models/bone_seg"
 if [[ ! -f "$DETECT_ONNX_SRC" ]]; then
   echo "ERROR: detect onnx not found: $DETECT_ONNX_SRC"
   echo "Hint: if you only have best.pt, run:"
@@ -24,15 +24,15 @@ for f in Big.onnx Rib.onnx BigPlans.json RibPlans.json; do
   fi
 done
 
-cp -f "$DETECT_ONNX_SRC" "$DATA/models/detect/v1/model.onnx"
+cp -f "$DETECT_ONNX_SRC" "$DATA/models/detect/model.onnx"
 cp -f "$ONNX_SRC/Big.onnx" "$ONNX_SRC/Rib.onnx" "$ONNX_SRC/BigPlans.json" "$ONNX_SRC/RibPlans.json" \
-  "$DATA/models/bone_seg/v1/"
+  "$DATA/models/bone_seg/"
 
 REG="$DATA/models/registry.yaml"
 if [[ ! -f "$REG" ]]; then
   cp "$ROOT/data/models/registry.example.yaml" "$REG"
 fi
 echo "Models installed under $DATA/models/"
-echo "Detect: $DATA/models/detect/v1/model.onnx"
-echo "Bone:   $DATA/models/bone_seg/v1/{Big.onnx,Rib.onnx,BigPlans.json,RibPlans.json}"
+echo "Detect: $DATA/models/detect/model.onnx"
+echo "Bone:   $DATA/models/bone_seg/{Big.onnx,Rib.onnx,BigPlans.json,RibPlans.json}"
 echo "Run: python -c \"from pathlib import Path; import sys; sys.path.insert(0,'$ROOT/packages'); from bonemet_core.validate import require_models; require_models(Path('$DATA'))\""

@@ -4,13 +4,13 @@ __pycache__/
 .pytest_cache/
 node_modules/
 dist/
+dist-release/
 
 config/local.yaml
 deploy/.env
 data/cases/
-data/models/registry.yaml
-data/models/detect/
-data/models/bone_seg/
+data/models/**
+!data/models/registry.example.yaml
 data/queue/
 data/logs/
 data/export/

@@ -4,28 +4,20 @@
 
 active:
   detect: detect_v1
-  bone_seg: bone_seg_v4
+  bone_seg: bone_seg
 
 models:
   detect_v1:
     kind: onnx
-    path: "{data_root}/models/detect/v1/model.onnx"
+    path: "{data_root}/models/detect/model.onnx"
     source_run: 1982single_cleaned_p0p1p2_p3first644_811_20260513_p5ft2_ft1280_continued_ep100
     conf_default: 0.24
     imgsz: 1280
     sha256: ""
-  bone_seg_v1:
+  bone_seg:
     kind: onnx
-    big_path: "{data_root}/models/bone_seg/v1/Big.onnx"
-    axis_path: "{data_root}/models/bone_seg/v1/Rib.onnx"
-    big_plans_path: "{data_root}/models/bone_seg/v1/BigPlans.json"
-    axis_plans_path: "{data_root}/models/bone_seg/v1/RibPlans.json"
-    sha256: ""
-  bone_seg_v4:
-    kind: onnx
-    big_path: "{data_root}/models/bone_seg/v4/Big.onnx"
-    axis_path: "{data_root}/models/bone_seg/v4/Rib.onnx"
-    big_plans_path: "{data_root}/models/bone_seg/v4/BigPlans.json"
-    axis_plans_path: "{data_root}/models/bone_seg/v4/RibPlans.json"
-    source: nnunet_v4_ab_20260522/checkpoint_best
+    big_path: "{data_root}/models/bone_seg/Big.onnx"
+    axis_path: "{data_root}/models/bone_seg/Rib.onnx"
+    big_plans_path: "{data_root}/models/bone_seg/BigPlans.json"
+    axis_plans_path: "{data_root}/models/bone_seg/RibPlans.json"
     sha256: ""

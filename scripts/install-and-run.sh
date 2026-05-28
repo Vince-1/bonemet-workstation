@@ -121,7 +121,7 @@ Terminal=false
 Categories=MedicalSoftware;Science;
 EOF
 
-  if [[ -f "$ROOT/data/models/registry.yaml" && -f "$ROOT/data/models/detect/v1/model.onnx" ]]; then
+  if [[ -f "$ROOT/data/models/registry.yaml" && -f "$ROOT/data/models/detect/model.onnx" ]]; then
     msg "安装完成。\n\n已将快捷方式添加到系统菜单。\nAI 模型已预置，现在将启动软件。"
   else
     msg "安装完成。\n\n已将快捷方式添加到系统菜单。\n请将 AI 模型放入 data/models/ 后重新启动。\n现在将尝试启动软件。"

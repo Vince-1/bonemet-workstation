@@ -46,9 +46,11 @@ zip 内部结构：
 ```
 data/models/
   registry.yaml
-  detect/v1/model.onnx
-  bone_big/...
-  bone_axis/...
+  detect/model.onnx
+  bone_seg/Big.onnx
+  bone_seg/Rib.onnx
+  bone_seg/BigPlans.json
+  bone_seg/RibPlans.json
 ```
 
 zip 命名建议：
