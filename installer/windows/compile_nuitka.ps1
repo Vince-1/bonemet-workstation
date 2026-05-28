@@ -56,20 +56,46 @@ function Ensure-Nuitka([string]$Py) {
 
 Ensure-Nuitka $Python
 
+function Ensure-Exe([string]$ExpectedPath, [string]$HintGlob) {
+  if (Test-Path $ExpectedPath) { return }
+
+  $bin = Resolve-Path ".\\bin"
+  $candidates = @()
+  try {
+    $candidates += Get-ChildItem -Path $bin -Filter "*.exe" -ErrorAction SilentlyContinue
+  } catch {}
+  try {
+    $candidates += Get-ChildItem -Path "." -Filter "*.exe" -ErrorAction SilentlyContinue
+  } catch {}
+  if ($HintGlob) {
+    try { $candidates += Get-ChildItem -Path $bin -Filter $HintGlob -ErrorAction SilentlyContinue } catch {}
+    try { $candidates += Get-ChildItem -Path "." -Filter $HintGlob -ErrorAction SilentlyContinue } catch {}
+  }
+  $cand = $candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if ($cand -and (Test-Path $cand.FullName)) {
+    Move-Item -Force $cand.FullName $ExpectedPath
+  }
+
+  if (!(Test-Path $ExpectedPath)) {
+    Write-Host "==> Debug: .\\bin contents" -ForegroundColor Yellow
+    Get-ChildItem -Path ".\\bin" -Force | Format-Table -AutoSize | Out-String | Write-Host
+    throw "Nuitka compilation did not produce expected EXE: $ExpectedPath"
+  }
+}
+
 Write-Host "==> Compiling API launcher..." -ForegroundColor Cyan
 & $Python -m nuitka --onefile --assume-yes-for-downloads `
   --output-dir=.\bin `
   --output-filename=bonemet-api.exe `
   .\scripts\win_launch_api.py
+Ensure-Exe ".\\bin\\bonemet-api.exe" "*api*.exe"
 
 Write-Host "==> Compiling Worker launcher..." -ForegroundColor Cyan
 & $Python -m nuitka --onefile --assume-yes-for-downloads `
   --output-dir=.\bin `
   --output-filename=bonemet-worker.exe `
   .\scripts\win_launch_worker.py
+Ensure-Exe ".\\bin\\bonemet-worker.exe" "*worker*.exe"
 
-if (!(Test-Path ".\\bin\\bonemet-api.exe") -or !(Test-Path ".\\bin\\bonemet-worker.exe")) {
-  throw "Nuitka compilation did not produce expected EXEs under .\\bin"
-}
 Write-Host "OK: bin\\bonemet-api.exe, bin\\bonemet-worker.exe" -ForegroundColor Green
 
