@@ -106,7 +106,7 @@ jobs:
           foreach ($p in $paths) { if (Test-Path $p) { Write-Host "ISCC=$p"; exit 0 } }
           throw "ISCC.exe not found after install"
 
-      - name: Build Setup.exe (no signing, entrypoints compiled)
+      - name: Build Setup.exe (no signing)
         shell: pwsh
         run: |
           $env:BUNDLE_MODELS = "0"
@@ -119,8 +119,7 @@ jobs:
             -Version "${{ steps.ver.outputs.version }}" `
             -IsccPath $iscc `
             -BuildReleasePack `
-            -BashPath $bash `
-            -CompileEntrypoints
+            -BashPath $bash
 
       - name: Upload Setup.exe to Release
         uses: softprops/action-gh-release@v2
