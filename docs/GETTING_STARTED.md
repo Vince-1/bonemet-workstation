@@ -72,3 +72,15 @@ cd bonemet-workstation && PYTHONPATH=packages python -m apps.worker.main
 python scripts/export_approved.py --export-id batch_001
 # 拷贝 data/export/approved/batch_001 → bonemet-ml/data/imports/
 ```
+
+## 6. 导出/导入（Workstation 间迁移）
+
+### 导出
+
+在工作列表页可调用 API 导出（zip）：
+- `POST /api/cases/export`
+
+### 导入
+
+将导出的 zip 上传回 workstation：
+- `POST /api/cases/import`（multipart/form-data，字段名 `file`；可选 `force=true` 覆盖同名病例）

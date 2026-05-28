@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
+import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -113,6 +115,107 @@ _EXPORT_FILES = [
 _IMAGE_EXTS = (".webp", ".png", ".jpg", ".jpeg")
 
 
+def _zip_is_safe_path(name: str) -> bool:
+    # zip paths are '/' separated regardless of OS
+    if not name or name.startswith(("/", "\\")):
+        return False
+    parts = [p for p in name.split("/") if p]
+    if any(p == ".." for p in parts):
+        return False
+    return True
+
+
+def _import_export_zip(data_root: Path, zip_path: Path, *, force: bool) -> dict[str, Any]:
+    """Import a zip created by /api/cases/export or scripts/export_approved.py."""
+    imported: list[str] = []
+    skipped: list[str] = []
+    errors: list[dict[str, Any]] = []
+
+    cases_root = data_root / "cases" / "case_bundle"
+    cases_root.mkdir(parents=True, exist_ok=True)
+
+    with zipfile.ZipFile(zip_path, "r") as zf, tempfile.TemporaryDirectory() as td:
+        td_p = Path(td)
+
+        # Discover case UIDs by searching for meta.json
+        uids: set[str] = set()
+        for name in zf.namelist():
+            if not name.endswith("meta.json"):
+                continue
+            parts = [p for p in name.split("/") if p]
+            if parts[-1] != "meta.json":
+                continue
+            if len(parts) >= 3 and parts[0] == "cases":
+                uids.add(parts[1])
+            elif len(parts) >= 2:
+                uids.add(parts[0])
+
+        if not uids:
+            raise HTTPException(400, "导入包不包含任何病例（缺少 meta.json）")
+
+        for uid in sorted(uids):
+            target = cases_root / uid
+            if target.exists() and not force:
+                skipped.append(uid)
+                continue
+
+            stage = td_p / uid
+            stage.mkdir(parents=True, exist_ok=True)
+
+            prefix_a = f"{uid}/"
+            prefix_b = f"cases/{uid}/"
+            members = [m for m in zf.infolist() if m.filename.startswith(prefix_a) or m.filename.startswith(prefix_b)]
+            if not members:
+                errors.append({"study_uid": uid, "error": "case files not found in zip"})
+                continue
+
+            try:
+                for m in members:
+                    if m.is_dir():
+                        continue
+                    if not _zip_is_safe_path(m.filename):
+                        raise ValueError(f"unsafe zip path: {m.filename}")
+                    if m.filename.startswith(prefix_b):
+                        rel = m.filename[len(prefix_b):]
+                    else:
+                        rel = m.filename[len(prefix_a):]
+                    rel = rel.lstrip("/")
+                    if not rel:
+                        continue
+                    out = (stage / rel).resolve()
+                    if not str(out).startswith(str(stage.resolve())):
+                        raise ValueError(f"unsafe zip path: {m.filename}")
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(m, "r") as src, out.open("wb") as dst:
+                        shutil.copyfileobj(src, dst)
+
+                if not (stage / "meta.json").is_file():
+                    raise ValueError("missing meta.json")
+
+                if target.exists():
+                    shutil.rmtree(target)
+                shutil.move(str(stage), str(target))
+                imported.append(uid)
+            except Exception as e:
+                errors.append({"study_uid": uid, "error": str(e)})
+
+    # Rebuild index so worklist sees imported cases
+    try:
+        from bonemet_core.storage.case_index import rebuild_from_disk
+
+        rebuilt = rebuild_from_disk(data_root)
+    except Exception:
+        rebuilt = 0
+
+    return {
+        "schema_version": "import_result_v1",
+        "imported": imported,
+        "skipped": skipped,
+        "errors": errors,
+        "index_rebuilt_cases": rebuilt,
+    }
+
+
 def _add_case_to_zip(zf: zipfile.ZipFile, data_root: Path, uid: str) -> dict[str, Any]:
     """Add one case's data to the zip and return manifest entry."""
     base = case_dir(data_root, uid)
@@ -209,6 +312,28 @@ def export_cases(request: Request, body: ExportBody):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/import")
+async def import_cases(
+    request: Request,
+    file: UploadFile = File(...),
+    force: bool = False,
+):
+    """Import a previously exported cases zip back into this workstation."""
+    fn = (file.filename or "").lower()
+    if not fn.endswith(".zip"):
+        raise HTTPException(400, "仅支持 zip 文件")
+    data_root = _data_root(request)
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+            tmp.write(await file.read())
+            tmp_path = Path(tmp.name)
+        return _import_export_zip(data_root, tmp_path, force=force)
+    finally:
+        if tmp_path and tmp_path.is_file():
+            tmp_path.unlink(missing_ok=True)
 
 
 @router.get("/{study_uid}")
