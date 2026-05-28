@@ -85,16 +85,20 @@ function Ensure-Exe([string]$ExpectedPath, [string]$HintGlob) {
 
 Write-Host "==> Compiling API launcher..." -ForegroundColor Cyan
 & $Python -m nuitka --onefile --assume-yes-for-downloads `
+  --mingw64 `
   --output-dir=.\bin `
   --output-filename=bonemet-api.exe `
   .\scripts\win_launch_api.py
+if ($LASTEXITCODE -ne 0) { throw "Nuitka failed compiling API launcher (exit=$LASTEXITCODE)" }
 Ensure-Exe ".\\bin\\bonemet-api.exe" "*api*.exe"
 
 Write-Host "==> Compiling Worker launcher..." -ForegroundColor Cyan
 & $Python -m nuitka --onefile --assume-yes-for-downloads `
+  --mingw64 `
   --output-dir=.\bin `
   --output-filename=bonemet-worker.exe `
   .\scripts\win_launch_worker.py
+if ($LASTEXITCODE -ne 0) { throw "Nuitka failed compiling Worker launcher (exit=$LASTEXITCODE)" }
 Ensure-Exe ".\\bin\\bonemet-worker.exe" "*worker*.exe"
 
 Write-Host "OK: bin\\bonemet-api.exe, bin\\bonemet-worker.exe" -ForegroundColor Green
