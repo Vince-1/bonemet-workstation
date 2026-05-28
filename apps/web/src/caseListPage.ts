@@ -9,6 +9,14 @@ type UploadResult = {
   results: { filename?: string; status: string; study_uid?: string; error?: string }[];
 };
 
+type CaseImportResult = {
+  schema_version: string;
+  imported: string[];
+  skipped: string[];
+  errors: { study_uid?: string; error: string }[];
+  index_rebuilt_cases?: number;
+};
+
 type FilterTab = "all" | "in_review" | "computing" | "approved" | "error";
 type StatusFilter = "any" | "in_review" | "approved" | "signed";
 type PipelineFilter = "any" | "queued" | "computing" | "done" | "error" | "ingesting";
@@ -326,6 +334,7 @@ export async function renderList(nav: (path: string) => void): Promise<void> {
             <div class="ingest-tabs">
               <button type="button" class="ingest-tab active" data-tab="upload">本地文件上传</button>
               <button type="button" class="ingest-tab" data-tab="path">服务器路径</button>
+              <button type="button" class="ingest-tab" data-tab="casezip">导入导出包(zip)</button>
             </div>
             <div class="ingest-tab-body" id="tabUpload">
               <div class="upload-zone" id="uploadZone">
@@ -342,6 +351,19 @@ export async function renderList(nav: (path: string) => void): Promise<void> {
               <p class="hint" style="margin:0.25rem 0 0.5rem 1rem;font-size:0.8rem;color:#666">须为服务器上的绝对路径。</p>
               <button id="btnIngestDicom" class="primary">导入并入队推理</button>
               <span id="ingestMsg" class="status"></span>
+            </div>
+            <div class="ingest-tab-body" id="tabCaseZip" hidden>
+              <div class="upload-zone" id="caseZipZone">
+                <p>点击选择或拖拽「病例导出包 .zip」到此处</p>
+                <p class="hint">支持从其它 Workstation 导出的 zip 导入；如 Study UID 已存在将覆盖（可关闭）</p>
+                <input type="file" id="caseZipInput" accept=".zip" hidden />
+              </div>
+              <label style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;">
+                <input type="checkbox" id="caseZipForce" checked />
+                覆盖同 Study UID（force）
+              </label>
+              <div id="caseZipProgress" class="upload-progress" hidden></div>
+              <div id="caseZipResults" class="upload-results" hidden></div>
             </div>
           </div>
         </details>
@@ -546,6 +568,7 @@ export async function renderList(nav: (path: string) => void): Promise<void> {
       const tab = btn.dataset.tab;
       (document.getElementById("tabUpload") as HTMLElement).hidden = tab !== "upload";
       (document.getElementById("tabPath") as HTMLElement).hidden = tab !== "path";
+      (document.getElementById("tabCaseZip") as HTMLElement).hidden = tab !== "casezip";
     });
   });
 
@@ -612,6 +635,74 @@ export async function renderList(nav: (path: string) => void): Promise<void> {
       fill.style.width = "100%";
       fill.style.background = "#dc2626";
       text.textContent = `上传异常: ${e}`;
+    }
+  }
+
+  // ── Import exported cases zip ──
+  const caseZipZone = document.getElementById("caseZipZone")!;
+  const caseZipInput = document.getElementById("caseZipInput") as HTMLInputElement;
+  const caseZipForce = document.getElementById("caseZipForce") as HTMLInputElement;
+
+  caseZipZone.addEventListener("click", () => caseZipInput.click());
+  caseZipZone.addEventListener("dragover", (e) => { e.preventDefault(); caseZipZone.classList.add("dragover"); });
+  caseZipZone.addEventListener("dragleave", () => caseZipZone.classList.remove("dragover"));
+  caseZipZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    caseZipZone.classList.remove("dragover");
+    const f = e.dataTransfer?.files?.[0];
+    if (f) void handleCaseZip(f);
+  });
+  caseZipInput.addEventListener("change", () => {
+    const f = caseZipInput.files?.[0];
+    if (f) void handleCaseZip(f);
+  });
+
+  async function handleCaseZip(file: File) {
+    const progressEl = document.getElementById("caseZipProgress")!;
+    const resultsEl = document.getElementById("caseZipResults")!;
+    progressEl.hidden = false;
+    resultsEl.hidden = true;
+
+    const force = Boolean(caseZipForce?.checked);
+    progressEl.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div><p>正在导入…</p>`;
+    const fill = progressEl.querySelector(".progress-fill") as HTMLElement;
+    const text = progressEl.querySelector("p")!;
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    try {
+      fill.style.width = "25%";
+      const resp = await fetch(`/api/cases/import?force=${force ? "1" : "0"}`, { method: "POST", body: fd });
+      fill.style.width = "100%";
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        text.textContent = `导入失败: ${err}`;
+        return;
+      }
+
+      const data: CaseImportResult = await resp.json();
+      const imported = data.imported?.length || 0;
+      const skipped = data.skipped?.length || 0;
+      const errs = data.errors?.length || 0;
+      text.textContent = `完成: ${imported} 导入, ${skipped} 跳过, ${errs} 失败`;
+
+      const rows: string[] = [];
+      for (const uid of data.imported || []) rows.push(`<div class="upload-row ok"><span class="upload-icon">✓</span><span class="upload-name">${uid}</span><span class="upload-info">已导入</span></div>`);
+      for (const uid of data.skipped || []) rows.push(`<div class="upload-row skip"><span class="upload-icon">~</span><span class="upload-name">${uid}</span><span class="upload-info">已存在（跳过）</span></div>`);
+      for (const e of data.errors || []) rows.push(`<div class="upload-row err"><span class="upload-icon">✗</span><span class="upload-name">${e.study_uid || "-"}</span><span class="upload-info">${e.error || "error"}</span></div>`);
+      resultsEl.innerHTML = rows.join("") || `<div class="upload-row skip"><span class="upload-icon">~</span><span class="upload-name">无变更</span><span class="upload-info"></span></div>`;
+      resultsEl.hidden = false;
+
+      if (imported > 0) setTimeout(() => renderList(nav), 800);
+    } catch (e) {
+      fill.style.width = "100%";
+      fill.style.background = "#dc2626";
+      text.textContent = `导入异常: ${e}`;
+    } finally {
+      // allow re-select same file
+      caseZipInput.value = "";
     }
   }
 
