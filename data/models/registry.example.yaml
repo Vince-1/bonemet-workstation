@@ -1,0 +1,31 @@
+# 复制为 data/models/registry.yaml 后执行 scripts/install_models.sh
+# R-01 主线 B: p3first644 Active val-best continued_ep100, conf=0.24, imgsz=1280
+# R-02 骨分割: Big.onnx + Rib.onnx + *Plans.json（项目内预处理，禁止引用 RadiSmart）
+
+active:
+  detect: detect_v1
+  bone_seg: bone_seg_v4
+
+models:
+  detect_v1:
+    kind: onnx
+    path: "{data_root}/models/detect/v1/model.onnx"
+    source_run: 1982single_cleaned_p0p1p2_p3first644_811_20260513_p5ft2_ft1280_continued_ep100
+    conf_default: 0.24
+    imgsz: 1280
+    sha256: ""
+  bone_seg_v1:
+    kind: onnx
+    big_path: "{data_root}/models/bone_seg/v1/Big.onnx"
+    axis_path: "{data_root}/models/bone_seg/v1/Rib.onnx"
+    big_plans_path: "{data_root}/models/bone_seg/v1/BigPlans.json"
+    axis_plans_path: "{data_root}/models/bone_seg/v1/RibPlans.json"
+    sha256: ""
+  bone_seg_v4:
+    kind: onnx
+    big_path: "{data_root}/models/bone_seg/v4/Big.onnx"
+    axis_path: "{data_root}/models/bone_seg/v4/Rib.onnx"
+    big_plans_path: "{data_root}/models/bone_seg/v4/BigPlans.json"
+    axis_plans_path: "{data_root}/models/bone_seg/v4/RibPlans.json"
+    source: nnunet_v4_ab_20260522/checkpoint_best
+    sha256: ""

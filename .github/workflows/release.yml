@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (e.g. 0.2.0). If empty, derived from tag vX.Y.Z"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${{ inputs.version }}" ]]; then
+            ver="${{ inputs.version }}"
+          else
+            ref="${GITHUB_REF_NAME:-}"
+            ver="${ref#v}"
+          fi
+          if [[ -z "$ver" ]]; then
+            echo "version missing" >&2
+            exit 1
+          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "apps/web/package-lock.json"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build release packs (no models)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export BONEMET_VERSION="${{ steps.ver.outputs.version }}"
+          export BUNDLE_MODELS=0
+          export WITH_VENV=0
+          export BONEMET_TARGET=all
+          bash scripts/build-release-pack.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-release
+          path: dist-release/*
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "BoneMet Workstation v${{ steps.ver.outputs.version }}"
+          files: |
+            dist-release/*.zip
+            dist-release/*.tar.gz
+          generate_release_notes: true

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=BoneMet 骨转移工作站
+Name[zh_CN]=BoneMet 骨转移工作站
+Comment=骨转移辅助诊断 — 一键启动
+Exec=env BONEMET_GUI=1 bash -c "cd \"INSTALL_ROOT_PLACEHOLDER\" && ./安装并启动.sh"
+Path=INSTALL_ROOT_PLACEHOLDER
+Terminal=false
+Categories=MedicalSoftware;Science;
+StartupNotify=true

@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trains.local/schemas/dataset_layout_v2.json",
+  "title": "DatasetLayoutV2",
+  "description": "Research / annotation layout under datasets/{dataset_id}/. Replaces monolithic prediction/{tag}/data.json for runtime loading.",
+  "$defs": {
+    "dataset_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "patient_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "iso8601": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "view_name": {
+      "type": "string",
+      "enum": ["front", "back"]
+    },
+    "box_views": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["front", "back"],
+      "properties": {
+        "front": {
+          "type": "array",
+          "items": { "$ref": "box_v1.json#" }
+        },
+        "back": {
+          "type": "array",
+          "items": { "$ref": "box_v1.json#" }
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "dataset_id",
+        "data_sha256",
+        "patients_count",
+        "layout_version",
+        "created_at"
+      ],
+      "properties": {
+        "schema_version": { "const": "dataset_manifest_v2" },
+        "dataset_id": { "$ref": "#/$defs/dataset_id" },
+        "label": { "type": "string" },
+        "data_sha256": { "$ref": "#/$defs/sha256_hex" },
+        "patients_count": { "type": "integer", "minimum": 0 },
+        "layout_version": { "const": 2 },
+        "source_data_json": {
+          "type": "string",
+          "description": "Optional path to legacy monolithic file this layout was chunked from."
+        },
+        "created_at": { "$ref": "#/$defs/iso8601" },
+        "chunked_at": { "$ref": "#/$defs/iso8601" },
+        "models": {
+          "type": "object",
+          "properties": {
+            "detect": { "type": "string" },
+            "bone_seg": { "type": "string" }
+          }
+        },
+        "worklist": {
+          "type": "object",
+          "properties": {
+            "source_csv": { "type": "string" },
+            "endpoint": { "type": "string" }
+          }
+        },
+        "chunks": {
+          "type": "object",
+          "description": "Resolved URLs or relative paths after publish.",
+          "properties": {
+            "index": { "type": "string" },
+            "patient_prefix": { "type": "string" },
+            "stats_summary": { "type": "string" }
+          }
+        }
+      }
+    },
+    "index_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["patient_id", "counts"],
+      "properties": {
+        "patient_id": { "$ref": "#/$defs/patient_id" },
+        "display_id": { "type": "string" },
+        "tier": {
+          "type": "string",
+          "description": "Annotation tier e.g. P0–P5; optional."
+        },
+        "counts": {
+          "type": "object",
+          "properties": {
+            "gt_front": { "type": "integer", "minimum": 0 },
+            "gt_back": { "type": "integer", "minimum": 0 },
+            "pred_front": { "type": "integer", "minimum": 0 },
+            "pred_back": { "type": "integer", "minimum": 0 },
+            "review_tasks": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["unknown", "ready", "in_review", "approved"],
+          "default": "ready"
+        },
+        "thumb_url": { "type": "string" },
+        "chunk_path": {
+          "type": "string",
+          "description": "Relative path patients/{patient_id}.json"
+        },
+        "chunk_sha256": { "$ref": "#/$defs/sha256_hex" }
+      }
+    },
+    "index": {
+      "type": "object",
+      "required": ["schema_version", "dataset_id", "data_sha256", "patients"],
+      "properties": {
+        "schema_version": { "const": "dataset_index_v2" },
+        "dataset_id": { "$ref": "#/$defs/dataset_id" },
+        "data_sha256": { "$ref": "#/$defs/sha256_hex" },
+        "patients": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/index_entry" }
+        }
+      }
+    },
+    "report_ref": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "text": { "type": "string" }
+      }
+    },
+    "patient_chunk": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "patient_id", "images", "gt", "pred"],
+      "properties": {
+        "schema_version": { "const": "patient_chunk_v2" },
+        "patient_id": { "$ref": "#/$defs/patient_id" },
+        "tier": { "type": "string" },
+        "images": {
+          "type": "object",
+          "required": ["front", "back"],
+          "properties": {
+            "front": { "type": "string" },
+            "back": { "type": "string" }
+          }
+        },
+        "gt": { "$ref": "#/$defs/box_views" },
+        "pred": { "$ref": "#/$defs/box_views" },
+        "report": { "$ref": "#/$defs/report_ref" },
+        "annotation_source": { "type": "string" },
+        "pred_source": { "type": "string" }
+      },
+      "description": "Compatible with one element of legacy data.json patients[] (infer_single_model.py)."
+    },
+    "stats_summary": {
+      "type": "object",
+      "description": "Lightweight global metrics for dashboards; not required for worklist.",
+      "properties": {
+        "schema_version": { "const": "stats_summary_v2" },
+        "dataset_id": { "$ref": "#/$defs/dataset_id" },
+        "data_sha256": { "$ref": "#/$defs/sha256_hex" },
+        "global": { "type": "object" },
+        "by_region": { "type": "object" }
+      }
+    },
+    "legacy_data_json": {
+      "type": "object",
+      "required": ["meta", "patients"],
+      "properties": {
+        "meta": { "type": "object" },
+        "patients": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/patient_chunk" }
+        }
+      },
+      "description": "Deprecated monolithic format; export-only."
+    },
+    "directory_layout": {
+      "type": "object",
+      "description": "Expected layout under datasets/{dataset_id}/",
+      "properties": {
+        "manifest.json": { "$ref": "#/$defs/manifest" },
+        "index.json": { "$ref": "#/$defs/index" },
+        "patients/{patient_id}.json": { "$ref": "#/$defs/patient_chunk" },
+        "cache/{patient_id}.region.bin": { "type": "string", "const": "(binary, optional)" },
+        "stats.summary.json": { "$ref": "#/$defs/stats_summary" },
+        "_legacy.data.json": { "$ref": "#/$defs/legacy_data_json" }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/manifest", "title": "ManifestFile" },
+    { "$ref": "#/$defs/index", "title": "IndexFile" },
+    { "$ref": "#/$defs/patient_chunk", "title": "PatientChunkFile" },
+    { "$ref": "#/$defs/stats_summary", "title": "StatsSummaryFile" }
+  ]
+}

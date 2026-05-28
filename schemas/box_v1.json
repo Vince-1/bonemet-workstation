@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trains.local/schemas/box_v1.json",
+  "title": "NormalizedDetectionBox",
+  "description": "YOLO-style axis-aligned box in normalized image coordinates. Shared by case_bundle, dataset patient chunks, and APFusion delta ops.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cls", "cx", "cy", "w", "h"],
+  "properties": {
+    "cls": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Class id; bone metastasis projects typically use 0."
+    },
+    "cx": { "type": "number", "minimum": 0, "maximum": 1 },
+    "cy": { "type": "number", "minimum": 0, "maximum": 1 },
+    "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+    "conf": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1.0,
+      "description": "Detector confidence; GT boxes may use 1.0."
+    },
+    "lesion_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "description": "Stable id within a case after pairing; optional on raw pred."
+    },
+    "region": {
+      "type": "string",
+      "enum": ["limb", "pelvis", "skull", "other"],
+      "description": "Optional three-region router label."
+    },
+    "bone_label": {
+      "type": "string",
+      "description": "Optional human-readable anatomy after bone matching."
+    },
+    "bone_label_id": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Optional numeric label from bone mask (Big/Axis merged semantics)."
+    }
+  }
+}

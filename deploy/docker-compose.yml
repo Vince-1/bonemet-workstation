@@ -1,0 +1,56 @@
+# BoneMet Workstation — 院内单机 compose（context 仅本目录上级）
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: api
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ${BONEMET_DATA_ROOT:-/var/lib/bonemet}:/data
+      - ${BONEMET_CONFIG:-../config/local.yaml}:/etc/bonemet/local.yaml:ro
+    ports:
+      - "${BONEMET_API_PORT:-8080}:8080"
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: worker
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ${BONEMET_DATA_ROOT:-/var/lib/bonemet}:/data
+      - ${BONEMET_CONFIG:-../config/local.yaml}:/etc/bonemet/local.yaml:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      - redis
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${BONEMET_WEB_PORT:-443}:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - api
+
+volumes:
+  caddy_data:

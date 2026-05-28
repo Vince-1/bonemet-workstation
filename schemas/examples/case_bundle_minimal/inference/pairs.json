@@ -1,0 +1,14 @@
+{
+  "schema_version": "pairs_v1",
+  "pairs": [
+    {
+      "lesion_id": "L1",
+      "front_box_index": 0,
+      "back_box_index": 0,
+      "score": 0.04,
+      "status": "auto"
+    }
+  ],
+  "unpaired_front": [],
+  "unpaired_back": []
+}

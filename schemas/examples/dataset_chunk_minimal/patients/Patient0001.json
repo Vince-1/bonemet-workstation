@@ -1,0 +1,15 @@
+{
+  "schema_version": "patient_chunk_v2",
+  "patient_id": "Patient0001",
+  "tier": "P0",
+  "images": {
+    "front": "../../../../../review_datas/example/front.png",
+    "back": "../../../../../review_datas/example/back.png"
+  },
+  "gt": { "front": [], "back": [] },
+  "pred": {
+    "front": [{ "cls": 0, "cx": 0.5, "cy": 0.5, "w": 0.1, "h": 0.1, "conf": 0.9 }],
+    "back": []
+  },
+  "report": { "path": "", "text": "" }
+}

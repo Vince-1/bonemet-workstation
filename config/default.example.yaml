@@ -1,0 +1,60 @@
+# BoneMet Workstation — 默认配置（复制为 config/local.yaml 后修改）
+
+app:
+  name: bonemet-workstation
+  env: development
+  log_level: INFO
+
+paths:
+  # 可被环境变量 BONEMET_DATA_ROOT 覆盖
+  data_root: ./data
+  cases_dir: "{data_root}/cases/case_bundle"
+  models_dir: "{data_root}/models"
+  export_dir: "{data_root}/export/approved"
+
+api:
+  host: 0.0.0.0
+  port: 10120
+  cors_origins:
+    - http://localhost:5173
+
+worker:
+  gpu_id: 0
+  max_concurrent_jobs: 1
+  pipeline:
+    three_region_fusion: false
+    detect_conf: 0.24
+    detect_imgsz: 1280
+    detect_device: auto  # auto | cpu | "0" | "1" ...  auto=检测空闲GPU，失败回退CPU
+    bone_seg_use_gpu: false
+
+web:
+  dev_port: 5173
+  api_base: http://localhost:10120
+
+queue:
+  backend: redis  # redis | sqlite
+  redis_url: redis://127.0.0.1:6379/0
+  sqlite_path: "{data_root}/queue/jobs.db"
+
+auth:
+  basic_enabled: false  # 试点开启；见 docs/PENDING_USER_REVIEW.md R-08
+  basic_user: clinic
+  basic_password: change-me
+
+sign:
+  lock_after_sign: false  # true 时签发后禁止 PATCH；见 R-05
+
+pacs:
+  scp:
+    enabled: false
+    port: 11112
+    ae_title: BONEMET
+  watcher:
+    enabled: false
+    watch_dir: ""              # e.g. /mnt/pacs_export/bone_scan
+    poll_interval_sec: 10
+    settle_sec: 5
+  night_batch:
+    enabled: false
+    cron: "0 2 * * *"

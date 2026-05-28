@@ -1,0 +1,13 @@
+{
+  "schema_version": "case_bundle_v1",
+  "study_uid": "STUDY_DEMO_001",
+  "patient_display_id": "DEMO-001",
+  "study_datetime": "2026-05-21T10:00:00+08:00",
+  "modality": "NM",
+  "status": "ready",
+  "pipeline_status": "ready",
+  "review_task_count": 1,
+  "rev": 0,
+  "created_at": "2026-05-21T10:05:00+08:00",
+  "updated_at": "2026-05-21T10:06:00+08:00"
+}

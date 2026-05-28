@@ -1,0 +1,29 @@
+{
+  "schema_version": "dataset_index_v2",
+  "dataset_id": "demo_chunked_minimal",
+  "data_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "patients": [
+    {
+      "patient_id": "Patient0001",
+      "display_id": "0001",
+      "tier": "P0",
+      "counts": { "gt_front": 0, "gt_back": 0, "pred_front": 1, "pred_back": 0 },
+      "status": "ready",
+      "chunk_path": "patients/Patient0001.json"
+    },
+    {
+      "patient_id": "Patient0002",
+      "display_id": "0002",
+      "counts": { "gt_front": 2, "gt_back": 1, "pred_front": 2, "pred_back": 1 },
+      "status": "ready",
+      "chunk_path": "patients/Patient0002.json"
+    },
+    {
+      "patient_id": "Patient0003",
+      "display_id": "0003",
+      "counts": { "gt_front": 0, "gt_back": 0, "pred_front": 0, "pred_back": 0 },
+      "status": "ready",
+      "chunk_path": "patients/Patient0003.json"
+    }
+  ]
+}

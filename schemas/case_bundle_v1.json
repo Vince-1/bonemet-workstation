@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trains.local/schemas/case_bundle_v1.json",
+  "title": "CaseBundleV1",
+  "description": "Clinical production layout: one directory per study (case_bundle/{study_uid}/). Binary assets (DICOM, NIfTI, PNG masks) are referenced by relative path only.",
+  "$defs": {
+    "study_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "description": "Directory name and primary key in clinical SQLite index."
+    },
+    "iso8601": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "view_name": {
+      "type": "string",
+      "enum": ["front", "back"]
+    },
+    "pipeline_status": {
+      "type": "string",
+      "enum": ["queued", "running", "ready", "failed"]
+    },
+    "case_status": {
+      "type": "string",
+      "enum": ["ingesting", "computing", "ready", "in_review", "approved", "failed"]
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "POSIX-style path relative to case_bundle root; no '..'"
+    },
+    "box_list": {
+      "type": "array",
+      "items": { "$ref": "box_v1.json#" }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "study_uid", "status", "created_at", "updated_at"],
+      "properties": {
+        "schema_version": { "const": "case_bundle_v1" },
+        "study_uid": { "$ref": "#/$defs/study_uid" },
+        "patient_display_id": {
+          "type": "string",
+          "description": "De-identified display id for worklist (not necessarily DICOM PatientID)."
+        },
+        "accession_number": { "type": "string" },
+        "study_datetime": { "$ref": "#/$defs/iso8601" },
+        "modality": { "type": "string", "default": "NM" },
+        "status": { "$ref": "#/$defs/case_status" },
+        "pipeline_status": { "$ref": "#/$defs/pipeline_status" },
+        "review_task_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Denormalized count for worklist badge."
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Monotonic revision for review PATCH If-Match."
+        },
+        "operator_last": { "type": "string" },
+        "model_manifest_ref": {
+          "type": "string",
+          "description": "Path or id into hospital model registry used for inference/."
+        },
+        "created_at": { "$ref": "#/$defs/iso8601" },
+        "updated_at": { "$ref": "#/$defs/iso8601" },
+        "approved_at": { "$ref": "#/$defs/iso8601" },
+        "failure_reason": { "type": "string" }
+      }
+    },
+    "pipeline_result": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "study_uid", "finished_at", "duration_ms", "models"],
+      "properties": {
+        "schema_version": { "const": "pipeline_result_v1" },
+        "study_uid": { "$ref": "#/$defs/study_uid" },
+        "started_at": { "$ref": "#/$defs/iso8601" },
+        "finished_at": { "$ref": "#/$defs/iso8601" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "models": {
+          "type": "object",
+          "properties": {
+            "detect": { "type": "string" },
+            "bone_seg": { "type": "string" },
+            "three_region_fusion": { "type": "boolean", "default": false }
+          }
+        },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "boxes_view_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "view", "boxes"],
+      "properties": {
+        "schema_version": { "const": "boxes_view_v1" },
+        "view": { "$ref": "#/$defs/view_name" },
+        "boxes": { "$ref": "#/$defs/box_list" }
+      }
+    },
+    "review_boxes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "rev", "front", "back"],
+      "properties": {
+        "schema_version": { "const": "review_boxes_v1" },
+        "rev": { "type": "integer", "minimum": 0 },
+        "front": { "$ref": "#/$defs/box_list" },
+        "back": { "$ref": "#/$defs/box_list" },
+        "negative_explicit": {
+          "type": "boolean",
+          "description": "True when clinician marks no bone metastasis for this study."
+        }
+      }
+    },
+    "lesion_pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lesion_id", "front_box_index", "back_box_index", "score"],
+      "properties": {
+        "lesion_id": { "type": "string" },
+        "front_box_index": { "type": "integer", "minimum": 0 },
+        "back_box_index": { "type": "integer", "minimum": 0 },
+        "score": { "type": "number", "description": "Pairing cost; lower is better." },
+        "status": {
+          "type": "string",
+          "enum": ["auto", "confirmed", "split", "rejected"]
+        }
+      }
+    },
+    "pairs_file": {
+      "type": "object",
+      "required": ["schema_version", "pairs"],
+      "properties": {
+        "schema_version": { "const": "pairs_v1" },
+        "unpaired_front": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "unpaired_back": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "pairs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/lesion_pair" }
+        }
+      }
+    },
+    "review_task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "kind", "severity", "message"],
+      "properties": {
+        "task_id": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "suspected_fp",
+            "pairing_uncertain",
+            "bone_location_ambiguous",
+            "report_required",
+            "pipeline_warning"
+          ]
+        },
+        "severity": { "type": "string", "enum": ["info", "warn", "must_fix"] },
+        "message": { "type": "string" },
+        "view": { "$ref": "#/$defs/view_name" },
+        "lesion_id": { "type": "string" },
+        "box_index": { "type": "integer", "minimum": 0 },
+        "suggested_action": {
+          "type": "string",
+          "enum": ["confirm", "remove", "adjust", "confirm_pair", "edit_location"]
+        }
+      }
+    },
+    "review_tasks_file": {
+      "type": "object",
+      "required": ["schema_version", "study_uid", "tasks"],
+      "properties": {
+        "schema_version": { "const": "review_tasks_v1" },
+        "study_uid": { "$ref": "#/$defs/study_uid" },
+        "generated_at": { "$ref": "#/$defs/iso8601" },
+        "tasks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/review_task" }
+        }
+      }
+    },
+    "audit_event": {
+      "type": "object",
+      "required": ["ts", "event"],
+      "properties": {
+        "ts": { "$ref": "#/$defs/iso8601" },
+        "operator": { "type": "string" },
+        "event": { "type": "string" },
+        "rev": { "type": "integer" },
+        "detail": { "type": "object" }
+      }
+    },
+    "directory_layout": {
+      "type": "object",
+      "description": "Expected files under case_bundle/{study_uid}/. Non-JSON paths are conventional.",
+      "properties": {
+        "meta.json": { "$ref": "#/$defs/meta" },
+        "inference/pipeline_result.json": { "$ref": "#/$defs/pipeline_result" },
+        "inference/boxes_front.json": { "$ref": "#/$defs/boxes_view_file" },
+        "inference/boxes_back.json": { "$ref": "#/$defs/boxes_view_file" },
+        "inference/pairs.json": { "$ref": "#/$defs/pairs_file" },
+        "inference/bone_masks.nii.gz": { "type": "string", "const": "(binary)" },
+        "inference/region_cache.bin": { "type": "string", "const": "(binary, optional)" },
+        "inference/lesion_masks/": { "type": "string", "const": "(directory, optional)" },
+        "review_tasks.json": { "$ref": "#/$defs/review_tasks_file" },
+        "review/boxes.json": { "$ref": "#/$defs/review_boxes" },
+        "review/masks/": { "type": "string", "const": "(directory, optional)" },
+        "review/bone_edits.nii.gz": { "type": "string", "const": "(binary, optional)" },
+        "report/draft.md": { "type": "string" },
+        "report/final.pdf": { "type": "string", "const": "(binary)" },
+        "audit.log.ndjson": {
+          "type": "string",
+          "description": "One JSON object per line matching audit_event."
+        },
+        "images/front.webp": { "type": "string" },
+        "images/back.webp": { "type": "string" },
+        "dicom/": { "type": "string", "const": "(directory or symlink)" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "type": "object",
+      "title": "CaseBundleMetaFile",
+      "$ref": "#/$defs/meta"
+    }
+  ]
+}
