@@ -69,6 +69,10 @@ BoneMet 骨转移工作站 — 使用说明（Windows）
 
 【退出】双击「停止BoneMet.bat」
 
+【卸载】双击「卸载.bat」，或在 设置 → 应用 中找到「BoneMet 骨转移工作站」
+
+【重新安装】先将新版本 zip 解压覆盖本目录，再双击「重新安装.bat」（会删除新包中不存在的旧程序文件；默认保留数据、不保留模型、保留 pip）
+
 【数据】病例与配置保存在本目录 data\ 下，请定期备份。
 
 技术支持请参阅 docs\DESKTOP.md
@@ -192,6 +196,8 @@ PY
     fi
     mkdir -p "$ROOT/dist-release"
     local archive="$ROOT/dist-release/${out_name}.tar.gz"
+    echo "    生成程序文件清单 (.bonemet_manifest.json)…"
+    python3 "$ROOT/scripts/release_manifest.py" write "$stage" "$VERSION"
     echo "    压缩 tar.gz …"
     tar -czf "$archive" -C "$ROOT/dist-release" "$out_name"
     echo "完成: $archive"
@@ -209,6 +215,8 @@ for p in list(root.glob("*.bat")) + list((root / "scripts").glob("*.bat")):
         p.write_bytes(data.replace(b"\n", b"\r\n"))
 PY
     write_readme_windows >"$stage/使用说明.txt"
+    echo "    生成程序文件清单 (.bonemet_manifest.json)…"
+    python3 "$ROOT/scripts/release_manifest.py" write "$stage" "$VERSION"
     if [[ "$WITH_VENV" == "1" ]]; then
       echo "    注意: Windows 包无法在 Linux 上预装 .venv，请在目标 Windows 上首次双击安装。" >&2
     fi

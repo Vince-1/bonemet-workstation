@@ -29,11 +29,23 @@ echo.
 echo ========================================
 echo   BoneMet - environment already installed
 echo ========================================
-echo   Skip reinstall and start directly, or run pip install again.
+echo   S=Start only  R=Reinstall (data/models/deps)  N=Reinstall pip deps only
 echo.
-choice /C SN /M "Press S to Start only, N to Reinstall"
-if errorlevel 2 goto do_install
+choice /C SRN /M "Select S, R, or N"
+if errorlevel 3 goto do_install
+if errorlevel 2 goto reinstall_prepare
 goto start_services
+
+:reinstall_prepare
+set "PY=%ROOT%\python\python.exe"
+if not exist "%PY%" set "PY=python"
+"%PY%" "%ROOT%\scripts\win_reinstall.py" --prepare
+if errorlevel 1 pause
+if exist "%ROOT%\.bonemet_reinstall_skip_deps" (
+  del "%ROOT%\.bonemet_reinstall_skip_deps"
+  goto start_services
+)
+goto do_install
 
 :do_install
 echo.
@@ -105,6 +117,9 @@ if errorlevel 1 goto install_failed
 
 if not exist "config\local.yaml" copy /Y config\default.example.yaml config\local.yaml
 echo installed>"%MARKER%"
+if not exist "%ROOT%\unins000.exe" (
+  "%PY%" "%ROOT%\scripts\win_register_uninstall.py" >>"%LOG_DIR%\install.log" 2>&1
+)
 echo Install OK. See %LOG_DIR%\install.log
 echo.
 goto start_services

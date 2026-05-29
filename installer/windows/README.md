@@ -59,6 +59,11 @@ installer\windows\build_installer.ps1 -Version "<ver>" -IsccPath "C:\Program Fil
 输出：
 - `dist-release/BoneMet-Workstation-<ver>-Setup.exe`
 
+卸载 / 重新安装：
+- **Setup.exe**：`unins000.exe` 或 **设置 → 应用**；**再次运行 Setup** 可升级/重装，向导默认 **保留数据、不保留模型、不重装 pip**
+- **zip 安装**：`卸载.bat` / `重新安装.bat`；「安装并启动」已安装时 **S** 启动 / **R** 重新安装（可选数据/模型/依赖） / **N** 仅重装 pip
+- **重装清理**：先解压新版本覆盖安装目录；重装时按 `.bonemet_manifest.json` 删除新包中不存在的旧程序文件（不删保留的 data/models、不删 pip 的 site-packages 除非勾选重装依赖）
+
 ### 4. （可选）签名 Setup.exe
 
 ```powershell

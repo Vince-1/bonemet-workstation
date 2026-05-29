@@ -5,6 +5,8 @@ __pycache__/
 node_modules/
 dist/
 dist-release/
+.bonemet_manifest.json
+.bonemet_reinstall_skip_deps
 
 config/local.yaml
 deploy/.env
