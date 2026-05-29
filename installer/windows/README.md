@@ -1,5 +1,7 @@
 ## Windows Setup.exe（A 路线：仅编译入口）
 
+> 完整打包/安装/重装说明：[docs/PACKAGING.md](../../docs/PACKAGING.md)
+
 目标：
 - 用户拿到 **`Setup.exe`** 一键安装、开始菜单/桌面快捷方式、可卸载
 - 运行时仍是 **pip 在线安装依赖**

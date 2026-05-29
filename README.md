@@ -39,13 +39,13 @@ bonemet-workstation/
 
 **科室部署（无需命令行）：**
 
-1. 研发机先 `make install-models`（若尚未安装），再打包（**默认预置 AI 模型**，约 600MB+）  
-   - Linux：`make release-pack` → `.tar.gz`  
-   - Windows：`make release-pack-windows` → `.zip`  
-   - 双平台：`make release-pack-all`  
-2. 用户解压后 **双击「安装并启动」/「安装并启动.bat」** 即可  
+1. 研发机打包（详见 [docs/PACKAGING.md](docs/PACKAGING.md)）  
+   - 先 `make install-models`（默认把模型打进包时）  
+   - `make release-pack` / `release-pack-windows` / `release-pack-all` → `dist-release/`  
+   - Windows 可选：`installer/windows/` 生成 **Setup.exe**  
+2. 用户解压 zip（或运行 Setup）后 **双击「安装并启动」** 即可  
 
-详见 [docs/DESKTOP.md](docs/DESKTOP.md)。
+GitHub Release 的 zip **默认不含模型**，需另下模型包，见 [docs/RELEASES.md](docs/RELEASES.md)。用户说明见 [docs/DESKTOP.md](docs/DESKTOP.md)。
 
 **本机开发调试：**
 
@@ -68,6 +68,9 @@ make api · make worker · make web  → http://localhost:5173
 - [docs/STANDALONE.md](docs/STANDALONE.md) — 与 trains 隔离边界、资产迁移方式  
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 模块与数据流  
 - [docs/DESKTOP.md](docs/DESKTOP.md) — **一键安装 / 启动（桌面模式）**
+- [docs/PACKAGING.md](docs/PACKAGING.md) — **打包、安装、重装、卸载（维护者）**
+- [docs/RELEASES.md](docs/RELEASES.md) — GitHub Release 发版（CI 无模型）
+- [installer/windows/README.md](installer/windows/README.md) — Windows Setup.exe
 - [docs/DEPLOY.md](docs/DEPLOY.md) — 院内单机部署（Docker）  
 - [docs/PRODUCT_PLAN.md](docs/PRODUCT_PLAN.md) — 功能阶段（从医院计划摘编的产品视角）  
 - [docs/PENDING_USER_REVIEW.md](docs/PENDING_USER_REVIEW.md) — **待您审核项（模型/文案/合规等）**  

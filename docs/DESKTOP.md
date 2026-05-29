@@ -24,9 +24,10 @@
 | **Linux** | 进入文件夹，双击 **`安装并启动`**（或 `安装并启动.sh`，选「运行」） |
 | **Windows** | 双击 **`安装并启动.bat`** |
 
-- **第一次**会自动安装依赖（需联网约 3～10 分钟），完成后自动打开浏览器。  
-- **以后每次**双击：若已安装过，会提示 **S=仅启动** / **N=重新安装依赖**（不必每次重装）。  
-- 静默仅启动：设置环境变量 `BONEMET_SKIP_INSTALL=1` 后双击；强制重装：`BONEMET_FORCE_INSTALL=1`。  
+- **第一次**会自动安装依赖（需联网约 3～30 分钟），完成后自动打开浏览器。  
+- **以后每次**双击（Windows）：**S**=仅启动 · **R**=重新安装（可选保留数据/模型/依赖）· **N**=仅重装 pip。  
+- 静默仅启动：`BONEMET_SKIP_INSTALL=1`；强制 pip：`BONEMET_FORCE_INSTALL=1`。  
+- 若使用 **Setup.exe** 安装，卸载/升级见 [PACKAGING.md](PACKAGING.md)。  
 - Linux 首次成功后，开始菜单会出现 **「BoneMet 骨转移工作站」** 快捷方式。
 
 ### 3. 退出
@@ -92,9 +93,16 @@ make release-pack-all          # 同时打 Linux + Windows
 #   dist-release/BoneMet-Workstation-0.2.0-win-x64.zip
 ```
 
-将对应平台的压缩包交给用户即可。
+将对应平台的压缩包交给用户即可。完整流程见 **[PACKAGING.md](PACKAGING.md)**。
 
-**完全离线安装包**（预置模型 + Python 依赖，体积最大）：
+**Windows Setup.exe（可选）：**
+
+```powershell
+make release-pack-windows   # Git Bash
+installer\windows\build_installer.ps1 -Version "0.2.0" -IsccPath "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+```
+
+**完全离线安装包**（预置模型 + Python 依赖，体积最大；仅 Linux 预装 venv）：
 
 ```bash
 WITH_VENV=1 make release-pack
