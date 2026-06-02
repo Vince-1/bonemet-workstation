@@ -28,7 +28,8 @@
 - **以后每次**双击（Windows）：**S**=仅启动 · **R**=重新安装（可选保留数据/模型/依赖）· **N**=仅重装 pip。  
 - 静默仅启动：`BONEMET_SKIP_INSTALL=1`；强制 pip：`BONEMET_FORCE_INSTALL=1`。  
 - 若使用 **Setup.exe** 安装，卸载/升级见 [PACKAGING.md](PACKAGING.md)。  
-- Linux 首次成功后，开始菜单会出现 **「BoneMet 骨转移工作站」** 快捷方式。
+- Linux 首次成功后，开始菜单会出现 **「BoneMet 骨转移工作站」** 快捷方式。  
+- Windows 首次安装成功后：**开始菜单** + **桌面** 会出现带图标的快捷方式（需已放置 `bonemet.ico`，见 [installer/windows/ICON.md](../installer/windows/ICON.md)）。
 
 ### 3. 退出
 
@@ -43,9 +44,9 @@
 |------|------|
 | 卸载 | **设置 → 应用** → **BoneMet 骨转移工作站**；或双击 **`卸载.bat`** |
 | 重新安装 | 双击 **`重新安装.bat`**，或在「安装并启动」已安装时选 **R** |
-| Setup 升级 | 再次运行新版 **Setup.exe**，向导中勾选保留项（默认保留数据、不保留模型） |
+| Setup 升级 | 再次运行新版 **Setup.exe**，向导中勾选保留项（默认保留数据、不保留模型、不重装 pip） |
 
-重新安装 / 卸载时均可选择：**保留病例数据**（默认是）、**保留 AI 模型**（默认否）、**重新安装 Python 依赖 pip**（默认否，即保留依赖）。
+重新安装 / 卸载时均可选择：**保留病例数据**（默认是）、**保留 AI 模型**（默认否）、**重新安装 Python 依赖 pip**（默认是）。
 
 **重要：** zip 重装前请先将**新版本解压覆盖**到安装目录；重新安装会根据包内清单 `.bonemet_manifest.json` **自动删除新包中已不存在的旧程序文件**（不删 `data\` 里你勾选保留的内容，也不删 `pip` 装入的 `python\Lib\site-packages`，除非勾选重装依赖）。
 
@@ -97,9 +98,9 @@ make release-pack-all          # 同时打 Linux + Windows
 
 **Windows Setup.exe（可选）：**
 
-```powershell
-make release-pack-windows   # Git Bash
-installer\windows\build_installer.ps1 -Version "0.2.0" -IsccPath "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+```bash
+make release-pack-windows
+make windows-setup BONEMET_VERSION=0.2.0
 ```
 
 **完全离线安装包**（预置模型 + Python 依赖，体积最大；仅 Linux 预装 venv）：

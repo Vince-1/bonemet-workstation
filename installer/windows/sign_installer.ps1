@@ -7,8 +7,13 @@ Param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "_inno.ps1")
 
-$setup = Resolve-Path "$PSScriptRoot\..\..\dist-release\BoneMet-Workstation-$Version-Setup.exe"
+$setup = Get-BonemetSetupExePath -Version $Version
+if (!(Test-Path -LiteralPath $setup)) {
+  throw "Setup.exe not found: $setup`nRun: make windows-setup BONEMET_VERSION=$Version"
+}
+$setup = (Resolve-Path -LiteralPath $setup).Path
 
 Write-Host "==> Signing $setup" -ForegroundColor Cyan
 

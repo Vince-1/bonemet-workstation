@@ -71,7 +71,7 @@ BoneMet 骨转移工作站 — 使用说明（Windows）
 
 【卸载】双击「卸载.bat」，或在 设置 → 应用 中找到「BoneMet 骨转移工作站」
 
-【重新安装】先将新版本 zip 解压覆盖本目录，再双击「重新安装.bat」（会删除新包中不存在的旧程序文件；默认保留数据、不保留模型、保留 pip）
+【重新安装】先将新版本 zip 解压覆盖本目录，再双击「重新安装.bat」（会删除新包中不存在的旧程序文件；默认保留数据、不保留模型、重装 pip）
 
 【数据】病例与配置保存在本目录 data\ 下，请定期备份。
 
@@ -174,6 +174,20 @@ PY
   fi
 
   mkdir -p "$stage/data/cases" "$stage/data/queue" "$stage/data/logs"
+
+  if [[ -f "$ROOT/installer/windows/bonemet-icon.svg" ]]; then
+    python3 "$ROOT/scripts/export_bonemet_icon.py" 2>/dev/null || true
+  fi
+  if [[ -f "$ROOT/installer/windows/bonemet.ico" ]]; then
+    cp -f "$ROOT/installer/windows/bonemet.ico" "$stage/bonemet.ico"
+    echo "    已复制 bonemet.ico"
+  else
+    echo "    提示: 未找到 bonemet.ico，运行: python scripts/export_bonemet_icon.py" >&2
+  fi
+  if [[ -f "$ROOT/installer/windows/bonemet.png" ]]; then
+    cp -f "$ROOT/installer/windows/bonemet.png" "$stage/bonemet.png"
+    echo "    已复制 bonemet.png"
+  fi
 
   if [[ "$BUNDLE_MODELS" == "1" ]]; then
     echo "    预置 AI 模型（约 500MB）…"

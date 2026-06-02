@@ -5,6 +5,7 @@ import logging
 import time
 
 from bonemet_core.pipeline import run_case_pipeline
+from bonemet_core.pipeline_progress import clear_pipeline_progress
 from bonemet_core.queue import pop_next_job
 from bonemet_core.settings import load_config
 from bonemet_core.storage.case_bundle import case_dir, read_json, write_meta
@@ -31,12 +32,17 @@ def main() -> None:
         uid = job["study_uid"]
         try:
             result = run_case_pipeline(
-                data_root, uid, cfg, reset_review=bool(job.get("reset_review"))
+                data_root,
+                uid,
+                cfg,
+                reset_review=bool(job.get("reset_review")),
+                rerun_bone_seg=bool(job.get("rerun_bone_seg", True)),
             )
             logger.info("pipeline done %s %s", uid, result)
         except Exception:
             logger.exception("pipeline failed %s", uid)
             try:
+                clear_pipeline_progress(data_root, uid)
                 meta_path = case_dir(data_root, uid) / "meta.json"
                 if meta_path.is_file():
                     meta = read_json(meta_path)

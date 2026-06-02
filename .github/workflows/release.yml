@@ -99,25 +99,20 @@ jobs:
         run: |
           choco install innosetup -y
           choco install rsync -y
-          $paths = @(
-            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-            "C:\Program Files\Inno Setup 6\ISCC.exe"
-          )
-          foreach ($p in $paths) { if (Test-Path $p) { Write-Host "ISCC=$p"; exit 0 } }
-          throw "ISCC.exe not found after install"
+          . ./installer/windows/_inno.ps1
+          $iscc = Find-InnoIscc
+          if (-not $iscc) { throw "ISCC.exe not found after install" }
+          Write-Host "ISCC=$iscc"
 
       - name: Build Setup.exe (no signing)
         shell: pwsh
         run: |
           $env:BUNDLE_MODELS = "0"
           $env:WITH_VENV = "0"
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          if (!(Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
           $bash = "C:\Program Files\Git\bin\bash.exe"
           if (!(Test-Path $bash)) { $bash = "bash.exe" }
           .\installer\windows\one_click.ps1 `
             -Version "${{ steps.ver.outputs.version }}" `
-            -IsccPath $iscc `
             -BuildReleasePack `
             -BashPath $bash
 

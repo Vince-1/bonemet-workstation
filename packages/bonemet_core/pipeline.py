@@ -18,6 +18,11 @@ from bonemet_core.registry import resolve_detect_model
 from bonemet_core.mask_overlay import generate_lesion_masks
 from bonemet_core.review_tasks import build_review_tasks
 from bonemet_core.review_boxes import normalize_box_list, seed_review_from_inference
+from bonemet_core.pipeline_progress import (
+    clear_pipeline_progress,
+    pipeline_step_plan,
+    set_pipeline_progress,
+)
 from bonemet_core.storage.case_bundle import case_dir, read_json, write_json, write_meta
 from bonemet_core.validate import require_models
 
@@ -59,7 +64,12 @@ def _predict_detect_onnx(
 
 
 def run_case_pipeline(
-    data_root: Path, study_uid: str, cfg: dict[str, Any], *, reset_review: bool = False
+    data_root: Path,
+    study_uid: str,
+    cfg: dict[str, Any],
+    *,
+    reset_review: bool = False,
+    rerun_bone_seg: bool = True,
 ) -> dict[str, Any]:
     require_models(data_root)
     t0 = time.time()
@@ -74,6 +84,23 @@ def run_case_pipeline(
     write_meta(data_root, study_uid, meta)
     log_event(bundle, "pipeline_started", detail={"study_uid": study_uid})
 
+    steps = pipeline_step_plan(rerun_bone_seg=rerun_bone_seg)
+    total_steps = len(steps)
+    step_by_stage = {k: i + 1 for i, (k, _) in enumerate(steps)}
+    label_by_stage = dict(steps)
+
+    def _progress(stage_key: str) -> None:
+        set_pipeline_progress(
+            data_root,
+            study_uid,
+            step=step_by_stage.get(stage_key, 0),
+            total_steps=total_steps,
+            stage=stage_key,
+            label=label_by_stage.get(stage_key, stage_key),
+        )
+
+    _progress("detect_front")
+
     pipe_cfg = cfg.get("worker", {}).get("pipeline", {})
     conf = float(pipe_cfg.get("detect_conf", 0.24))
     imgsz = int(pipe_cfg.get("detect_imgsz", 1280))
@@ -85,6 +112,8 @@ def run_case_pipeline(
     back_boxes: list[dict[str, Any]] = []
 
     for view in ("front", "back"):
+        stage_key = f"detect_{view}"
+        _progress(stage_key)
         img = image_path(bundle, view)
         if img is None:
             raise FileNotFoundError(f"missing image: {view}")
@@ -104,6 +133,7 @@ def run_case_pipeline(
             back_boxes = doc["boxes"]
             write_json(bundle / "inference" / "boxes_back.json", doc)
 
+    _progress("pairing")
     pairs_doc = pair_front_back(
         [dict(b) for b in front_boxes],
         [dict(b) for b in back_boxes],
@@ -117,8 +147,20 @@ def run_case_pipeline(
             back_boxes[bi]["lesion_id"] = lid
     write_json(bundle / "inference" / "pairs.json", pairs_doc)
 
-    bone_path = run_bone_segmentation(bundle, data_root, cfg)
+    bone_path = bundle / "inference" / "bone_masks.nii.gz"
+    if rerun_bone_seg:
+        _progress("bone_seg")
+        bone_path = run_bone_segmentation(bundle, data_root, cfg)
+    elif not bone_path.is_file():
+        raise FileNotFoundError(
+            "无已有骨骼分割结果 (inference/bone_masks.nii.gz)；"
+            "请勾选「重新推理骨骼」或先完成一次完整推理"
+        )
+    else:
+        _progress("bone_reuse")
+        warnings.append("bone_seg_skipped: using existing bone_masks.nii.gz")
 
+    _progress("bone_match")
     # Cache bone contours as JSON for fast API serving
     from bonemet_core.bone_contours import extract_bone_contours
     bone_contours = extract_bone_contours(bone_path)
@@ -134,10 +176,12 @@ def run_case_pipeline(
                     if item.get("ambiguous"):
                         b.setdefault("bone_match_note", "ambiguous")
 
+    _progress("analysis")
     from bonemet_core.lesion_analysis import analyze_case
     analysis = analyze_case(bundle, front_boxes, back_boxes, bone_match)
     write_json(bundle / "inference" / "lesion_analysis.json", analysis)
 
+    _progress("masks")
     generate_lesion_masks(bundle, front_boxes, back_boxes)
 
     # Re-write boxes with seg_valid flags added by generate_lesion_masks
@@ -146,6 +190,7 @@ def run_case_pipeline(
     write_json(bundle / "inference" / "boxes_back.json",
                {"schema_version": "boxes_view_v1", "view": "back", "boxes": back_boxes})
 
+    _progress("finalize")
     tasks_doc = build_review_tasks(study_uid, front_boxes, back_boxes, pairs_doc)
     write_json(bundle / "review_tasks.json", tasks_doc)
 
@@ -162,12 +207,14 @@ def run_case_pipeline(
             "models": {
                 "detect": str(model_path),
                 "bone_seg": str(bone_path),
+                "bone_seg_rerun": rerun_bone_seg,
                 "three_region_fusion": bool(pipe_cfg.get("three_region_fusion", False)),
             },
             "warnings": warnings,
         },
     )
 
+    clear_pipeline_progress(data_root, study_uid)
     meta = read_json(bundle / "meta.json")
     meta["pipeline_status"] = "ready"
     meta["status"] = "ready"

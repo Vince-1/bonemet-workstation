@@ -18,6 +18,9 @@ from bonemet_core.boxes import Box
 
 
 def _preferred_providers(use_gpu: bool) -> list[str]:
+    from bonemet_core.gpu_util import preload_ort_cuda_dlls
+
+    preload_ort_cuda_dlls()
     import onnxruntime as ort
 
     avail = set(ort.get_available_providers())

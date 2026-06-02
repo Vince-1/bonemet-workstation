@@ -30,6 +30,7 @@ from bonemet_core.review_tasks import (
     filter_tasks_for_display,
 )
 from bonemet_core.review_boxes import effective_review_boxes, reset_review_from_inference
+from bonemet_core.pipeline_progress import pipeline_step_plan, progress_from_meta, set_pipeline_progress
 from bonemet_core.storage.case_bundle import case_dir, delete_case_bundle, read_json, write_json, write_meta
 from bonemet_core.storage.case_index import ensure_index, list_cases as index_list_cases
 from bonemet_core.validate import require_models
@@ -86,6 +87,22 @@ class AssessmentPatch(BaseModel):
 
 class RunPipelineBody(BaseModel):
     reset_review: bool = True
+    rerun_bone_seg: bool = False
+
+
+def _enrich_pipeline_progress(data_root: Path, items: list[dict[str, Any]]) -> None:
+    for item in items:
+        ps = item.get("pipeline_status") or ""
+        st = item.get("status") or ""
+        if ps not in ("queued", "running") and st != "computing":
+            continue
+        try:
+            meta = read_json(case_dir(data_root, item["study_uid"]) / "meta.json")
+            prog = progress_from_meta(meta)
+            if prog:
+                item["pipeline_progress"] = prog
+        except (FileNotFoundError, KeyError):
+            pass
 
 
 @router.get("")
@@ -93,6 +110,7 @@ def list_cases(request: Request, status: str | None = None):
     data_root = _data_root(request)
     ensure_index(data_root)
     items = index_list_cases(data_root, status=status)
+    _enrich_pipeline_progress(data_root, items)
     return {"cases": items, "total": len(items)}
 
 
@@ -664,15 +682,32 @@ def run_pipeline(request: Request, study_uid: str, body: RunPipelineBody | None 
     except RuntimeError as e:
         raise HTTPException(503, str(e)) from e
     reset_review = body.reset_review if body else True
-    queue_mod.enqueue_pipeline(_data_root(request), study_uid, reset_review=reset_review)
+    rerun_bone_seg = body.rerun_bone_seg if body else False
+    queue_mod.enqueue_pipeline(
+        _data_root(request),
+        study_uid,
+        reset_review=reset_review,
+        rerun_bone_seg=rerun_bone_seg,
+    )
+    data_root = _data_root(request)
+    steps = pipeline_step_plan(rerun_bone_seg=rerun_bone_seg)
+    set_pipeline_progress(
+        data_root,
+        study_uid,
+        step=0,
+        total_steps=len(steps),
+        stage="queued",
+        label="排队等待 worker…",
+    )
     meta = read_json(base / "meta.json")
     meta["pipeline_status"] = "queued"
     if reset_review:
         meta["status"] = "computing"
     meta["updated_at"] = _now()
-    write_meta(_data_root(request), study_uid, meta)
+    write_meta(data_root, study_uid, meta)
     return {
         "study_uid": study_uid,
         "pipeline_status": "queued",
         "reset_review": reset_review,
+        "rerun_bone_seg": rerun_bone_seg,
     }

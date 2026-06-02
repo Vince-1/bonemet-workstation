@@ -18,6 +18,9 @@ def _get_config_value(config: Any, key: str, default=None):
 
 
 def _preferred_providers(use_gpu: bool = False) -> list:
+    from bonemet_core.gpu_util import preload_ort_cuda_dlls
+
+    preload_ort_cuda_dlls()
     import onnxruntime as ort
 
     available = set(ort.get_available_providers())

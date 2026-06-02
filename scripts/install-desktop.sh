@@ -20,7 +20,18 @@ echo "==> 安装 Python 依赖"
 "$PY" -m pip install -U "numpy<2.0"
 "$PY" -m pip uninstall -y onnxruntime onnxruntime-gpu 2>/dev/null || true
 "$PY" -m pip install -U "onnxruntime-gpu<1.17" || "$PY" -m pip install -U onnxruntime-gpu || true
-if "$PY" -c "import onnxruntime as ort; print('onnx providers:', ort.get_available_providers()); raise SystemExit(0 if 'CUDAExecutionProvider' in ort.get_available_providers() else 1)"; then
+# CUDA/cuDNN DLLs for ORT GPU on Windows (no full toolkit install)
+"$PY" -m pip install -U \
+  nvidia-cuda-runtime-cu12 nvidia-cublas-cu12 nvidia-cudnn-cu12 \
+  nvidia-cufft-cu12 nvidia-curand-cu12 nvidia-cusolver-cu12 \
+  nvidia-cusparse-cu12 nvidia-nvjitlink-cu12 2>/dev/null || true
+if "$PY" -c "
+import onnxruntime as ort
+if hasattr(ort, 'preload_dlls'):
+    ort.preload_dlls(cuda=True, cudnn=True, msvc=True)
+print('onnx providers:', ort.get_available_providers())
+raise SystemExit(0 if 'CUDAExecutionProvider' in ort.get_available_providers() else 1)
+"; then
   echo "==> ONNXRuntime GPU available"
 else
   echo "==> ONNXRuntime GPU not available, falling back to CPU"

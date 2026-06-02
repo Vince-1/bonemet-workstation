@@ -41,6 +41,7 @@ flowchart TB
 
 ### 前置
 
+- **应用图标**：已定稿 `installer/windows/bonemet-icon.svg` → `make export-icon` → `bonemet.ico` / `bonemet.png`（见 [installer/windows/ICON.md](../installer/windows/ICON.md)）
 - **Node.js**、**Python 3**
 - Windows 上打 zip：建议 **Git Bash**（`make` / `bash scripts/*.sh`）
 - 默认含模型时：先 `make install-models`（从研发路径拷贝 ONNX 到 `data/models/`）
@@ -88,27 +89,114 @@ BONEMET_VERSION=0.2.1 make models-zip
 
 ## 二、维护者：Windows Setup.exe
 
-在已有 **win-x64 目录或 zip** 基础上：
+**前置：** 安装 [Inno Setup 6](https://jrsoftware.org/isinfo.php)（`ISCC.exe` 在 PATH 或默认安装目录即可）。非默认路径时：
 
 ```powershell
-# 1. Git Bash 中
+$env:BONEMET_ISCC = "D:\Tools\ISCC.exe"   # 可选
+```
+
+### 方式 A：Make（推荐）
+
+```bash
+# Git Bash / MSYS，仓库根目录
 make release-pack-windows
-
-# 2. PowerShell 仓库根目录
-installer\windows\build_installer.ps1 -Version "0.2.0" -IsccPath "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+make windows-setup BONEMET_VERSION=0.2.0
 ```
 
-或一键（可 `-BuildReleasePack`）：
+从打 release 目录到 Setup 一步完成：
+
+```bash
+make windows-setup-full BONEMET_VERSION=0.2.0
+```
+
+**不含 AI 模型（小包，与 GitHub Release 一致）：**
+
+```bash
+make windows-setup-full-no-models BONEMET_VERSION=0.2.0
+```
+
+或分步：
+
+```bash
+make release-pack-windows-no-models
+make windows-setup BONEMET_VERSION=0.2.0
+```
+
+### 方式 B：脚本（仓库根目录）
 
 ```powershell
-installer\windows\one_click.ps1 -Version "0.2.0" -IsccPath "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
+.\scripts\build-windows-setup.ps1 -Version 0.2.0
+# 含 release pack：加 -BuildReleasePack
+.\scripts\build-windows-setup.ps1 -Version 0.2.0 -BuildReleasePack -NoModels
+.\installer\windows\one_click.ps1 -Version 0.2.0 -BuildReleasePack -NoModels
 ```
 
-产物：`dist-release/BoneMet-Workstation-<ver>-Setup.exe`
+```bash
+./scripts/build-windows-setup.sh
+BONEMET_VERSION=0.2.0 ./scripts/build-windows-setup.sh --build-release-pack --no-models
+```
 
-- 安装时可 **自选目标文件夹**
+### 方式 C：仅 Inno（已有 `dist-release/...-win-x64`）
+
+```powershell
+.\installer\windows\build_installer.ps1 -Version 0.2.0
+```
+
+ISCC 查找逻辑见 `installer/windows/_inno.ps1`（`-IsccPath` / `BONEMET_ISCC` / PATH / Program Files）。
+
+**产物：** `dist-release/BoneMet-Workstation-<ver>-Setup.exe`
+
+- 安装时可 **自选目标文件夹**（含升级时改路径；会弹出 UAC，也可在对话框选「仅当前用户」）
 - 卸载：`设置 → 应用` 或安装目录 `unins000.exe`
-- **再次运行 Setup** = 升级/重装；向导任务默认：**保留数据、不保留模型、不重装 pip**；装完后按清单 **删除新包中不存在的旧程序文件**
+- **是否升级**由 Windows 卸载注册表中的 **AppId / InstallLocation** 判定（与 `scripts/win_uninstall_common.py` 的 GUID 一致；Inno 登记子键为 `{GUID}_is1`，含花括号），**不是**看目标文件夹里是否已有文件。只要系统里登记过本软件，再次运行 Setup 即走升级/重装向导（默认 **保留 data、不保留模型、不重装 pip**）。安装完成勾选「立即启动」时，升级路径**只启动服务、不跑 pip**（除非勾选了重装依赖）。本机可运行 `scripts/probe-bonemet-uninstall-reg.ps1` 检查是否读到旧路径。
+- **换路径升级**：从注册表中的**旧路径**备份/清理 → 卸载并删除旧目录 → 在新路径安装并还原备份。
+- **真正首次安装**：注册表中无本 AppId 记录时，不显示升级任务，全量安装。
+
+**Setup 升级时序（两类清理不要混为一谈）**
+
+| 阶段 | 何时 | 做什么 | 与勾选项关系 |
+|------|------|--------|----------------|
+| A. 用户数据 | `ssInstall` **之前** | 从**注册表旧路径**备份 → 按勾选项删除旧路径上不保留的 data/models | `keepdata` / `keepmodels` |
+| B. 换路径 | `ssInstall` | 卸载并**整目录删除旧路径**（保留项已在 `%TEMP%`） | 与是否换路径有关 |
+| C. 程序目录 | `ssInstall`、**写入新包前** | 清空**新目标路径**下 `apps/`、`packages/`、`scripts/` 等；勾选重装 pip 时另删 `python\` | `reinstalldeps` |
+| D. 写入新包 | Inno `[Files]` | 解压新版程序文件到新路径 | — |
+| E. 清单收尾 | `ssPostInstall`、**还原前** | `release_manifest.py prune`：删掉新清单里没有的**旧程序零散文件**（须已有新 `.bonemet_manifest.json`） | 同样传 `keepdata` / `keepmodels` / `reinstalldeps`；**不能**放到 D 之前 |
+| F. 还原保留项 | `ssPostInstall` | 把临时目录里备份的 data/models/**python（换路径且不重装 pip）** 拷回新路径 | 与 A 对称 |
+| G. pip | `ssPostInstall` 末尾 | 仅勾选「重新安装 Python 依赖」时删标记并静默 pip；否则补写 `.bonemet_installed`（若 python 仍在） | `reinstalldeps` |
+| H. 自动启动 | 安装向导 `[Run]` | **首次**：`安装并启动.bat`（可无标记→pip）；**升级**：`BONEMET_SKIP_INSTALL=1` 仅启动 | 升级恒跳过 pip |
+
+```mermaid
+flowchart TD
+  subgraph pre [ssInstall 写入新包前 — 旧路径或新路径上的准备]
+    R[读注册表 PreviousInstallDir]
+    B[备份勾选项到 TEMP]
+    C[CleanupNotKept 删旧路径未保留项]
+    M{新路径?}
+    U[卸载并删除旧目录]
+    P[PruneProgramFilesBeforeInstall 清空新目标程序目录]
+    R --> B --> C --> M
+    M -->|是| U --> P
+    M -->|否同路径| P
+  end
+  F[Inno Files 写入新包]
+  subgraph post [ssPostInstall]
+    E[manifest prune 程序清单收尾]
+    S[RestoreUserData 拷回保留项]
+    G{重装 pip?}
+    I[pip install]
+    E --> S --> G
+    G -->|是| I
+  end
+  pre --> F --> post
+```
+
+**同路径升级**：未勾选重装 pip 时，`python\` 与 `.bonemet_installed` **留在原处**（阶段 C 不删），阶段 F 只还原 data/models。
+
+**换路径升级**：旧目录在阶段 B 整棵删除，因此阶段 A 必须把勾选项（及未重装 pip 时的 `python\`）先拷到 TEMP，阶段 F 再拷到新路径——**不是**在新路径上「重新安装」用户数据，而是**迁移拷贝**。
+
+**为何阶段 E 在写入新包之后**：`prune` 依赖新包内的 `.bonemet_manifest.json` 作对照表，安装前还没有新清单。它只管**程序树**里多出来的旧文件，不负责删 `data\`（由阶段 A 的 `CleanupNotKept` 按勾选项处理）。
+
+**首次安装**：无注册表记录 → 无 A/B/C/E/F/G，仅 D + 用户首次双击启动时 pip。
 
 ---
 
@@ -153,17 +241,17 @@ zip 安装首次成功后，会登记到 **设置 → 应用**（非 Setup 安�
 
 | 选项 | 默认 |
 |------|------|
-| 保留病例与配置数据 | **是** |
+| 保留用户 data（病例/队列/日志等，不含 models） | **是** |
 | 保留 AI 模型 | **否** |
-| 重新安装 pip 依赖 | **否**（保留已装依赖） |
+| 重新安装 pip 依赖 | **是** |
 
 静默：`BONEMET_KEEP_DATA` / `BONEMET_KEEP_MODELS` / `BONEMET_REINSTALL_DEPS`（`1`/`0`）。
 
 ### 清单清理（`.bonemet_manifest.json`）
 
-- 仅删除 **新包清单里没有** 的旧 **程序文件**（`apps/`、`packages/`、`scripts/` 等）
-- **不删**你勾选保留的 `data\cases`、`data\models` 等
-- **不删** `python\Lib\site-packages\`（除非勾选重装 pip）
+- 重装时 **先整目录删除** `apps/`、`packages/`、`scripts/` 等，再写入新包；最后用清单删掉漏网的旧程序文件
+- **不删**你勾选保留的 `data\` 子目录 / `data\models`
+- **不删** `python\`（未勾选重装 pip 时）；勾选重装 pip 时安装前会删掉整个 `python\` 再由新包 + pip 恢复
 - **不删** 安装目录外或清单外的自定义文件夹
 
 ---

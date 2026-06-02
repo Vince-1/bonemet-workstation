@@ -32,7 +32,7 @@ make setup-demo    # 创建 STUDY_DEMO_001；模型齐全时自动入队
 ```bash
 make api      # http://localhost:10120
 make worker   # 默认 python-runtime（见 scripts/run_worker.sh）
-make web      # http://localhost:5173（默认轮询 watch，避免 ENOSPC）
+make web      # http://localhost:10123（默认轮询 watch，避免 ENOSPC）
 ```
 
 若 `make web` 仍报 `ENOSPC: System limit for number of file watchers reached`，可临时提高上限（需 sudo）：
@@ -43,7 +43,7 @@ sudo sysctl -w fs.inotify.max_user_watches=524288
 
 或手动：`cd apps/web && npm run dev:poll`（`make web` 已等价于 dev:poll）。
 
-浏览器打开 http://localhost:5173：
+浏览器打开 http://localhost:10123：
 
 - 工作列表顶部可填 **WholeBody DICOM 路径**（单 `.dcm` 含正反两层，或所在目录）  
 - 点击病例进入复核：**拖拽**移动框、空白处**拖拽**新建框、**Del** 删除选中框  

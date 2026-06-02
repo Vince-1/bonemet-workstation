@@ -606,6 +606,63 @@ button.btn-delete:hover {
   border-radius: 3px;
   overflow: hidden;
 }
+/* Pipeline inference progress (list + review) */
+.bm-pipe-progress {
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.bm-pipe-progress--compact {
+  height: 4px;
+  min-width: 72px;
+}
+.bm-pipe-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+.cl-status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.cl-pipe-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 220px;
+}
+.cl-pipe-label {
+  font-size: 0.72rem;
+  color: #1d4ed8;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+#bm-review-root .bm-pipe-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  max-width: 280px;
+  margin-left: 8px;
+}
+#bm-review-root .bm-pipe-wrap[hidden] {
+  display: none !important;
+}
+#bm-review-root .bm-pipe-label {
+  font-size: 0.75rem;
+  color: #1d4ed8;
+  line-height: 1.3;
+}
+
 .progress-fill {
   height: 100%;
   background: #3b82f6;
@@ -1424,6 +1481,75 @@ button.primary {
 #bm-review-root .bm-assess-select.rpt-suspicious { color: #b91c1c; background: #fef2f2; border-color: #fca5a5; }
 #bm-review-root .bm-assess-select.rpt-indeterminate { color: #b45309; background: #fffbeb; border-color: #fcd34d; }
 #bm-review-root .bm-assess-select.rpt-benign { color: #15803d; background: #f0fdf4; border-color: #86efac; }
+
+/* Rerun pipeline dialog */
+.bm-rerun-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bm-rerun-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: min(420px, 92vw);
+  padding: 20px 22px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.bm-rerun-title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.bm-rerun-desc {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.45;
+}
+.bm-rerun-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  cursor: pointer;
+  user-select: none;
+}
+.bm-rerun-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+.bm-rerun-hint {
+  margin: 8px 0 18px;
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+.bm-rerun-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.bm-rerun-actions button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+}
+.bm-rerun-actions button.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+.bm-rerun-actions button.primary:hover {
+  background: #1d4ed8;
+}
 
 /* Report preview modal */
 .bm-report-overlay {

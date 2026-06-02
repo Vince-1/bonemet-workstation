@@ -1,4 +1,5 @@
 import { $, fetchJson, caseApi, casePage, downloadReportPdf, DISCLAIMER_HTML, type CaseRow } from "./helpers";
+import { isPipelineActive, pipelineStatusCellHtml } from "./pipelineProgress";
 import { showReportPreview } from "./reportPreview";
 
 type UploadResult = {
@@ -33,6 +34,7 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 function _statusBadge(status?: string, pipelineStatus?: string): string {
   const map: Record<string, [string, string]> = {
     queued:     ["badge-queued",     "排队中"],
+    running:    ["badge-computing",  "推理中"],
     computing:  ["badge-computing",  "推理中"],
     done:       ["badge-done",       "推理完成"],
     error:      ["badge-error",      "推理失败"],
@@ -137,7 +139,9 @@ function _matchFilter(c: CaseRow, filter: FilterTab): boolean {
   const ps = c.pipeline_status || "";
   if (filter === "in_review") return s === "in_review";
   if (filter === "approved") return s === "approved" || s === "signed";
-  if (filter === "computing") return ps === "computing" || ps === "queued" || s === "ingesting";
+  if (filter === "computing") {
+    return ps === "computing" || ps === "queued" || ps === "running" || s === "computing" || s === "ingesting";
+  }
   if (filter === "error") return ps === "error";
   return true;
 }
@@ -156,6 +160,7 @@ function _buildRow(c: CaseRow, idx: number, selected: boolean): string {
   const pid = c.patient_display_id || "-";
   const shortId = _shortUid(c.study_uid);
   const badge = _statusBadge(c.status, c.pipeline_status);
+  const pipeProg = isPipelineActive(c) ? pipelineStatusCellHtml(c) : "";
   const time = _relativeTime(c.updated_at || c.created_at);
   const timeFull = _fmtDateFull(c.updated_at || c.created_at);
   const tasks = _taskCountBadge(c.review_task_count);
@@ -165,7 +170,7 @@ function _buildRow(c: CaseRow, idx: number, selected: boolean): string {
     <td class="cl-col-idx">${idx}</td>
     <td class="cl-col-pid">${pid}</td>
     <td class="cl-col-uid" title="${c.study_uid}">${shortId}</td>
-    <td class="cl-col-status">${badge}</td>
+    <td class="cl-col-status"><div class="cl-status-cell">${badge}${pipeProg}</div></td>
     <td class="cl-col-tasks">${tasks}</td>
     <td class="cl-col-time" title="${timeFull}">${time}</td>
     <td class="cl-col-actions">
@@ -237,6 +242,36 @@ export async function renderList(nav: (path: string) => void): Promise<void> {
     }
   }
 
+  let listPollTimer: ReturnType<typeof setInterval> | null = null;
+
+  function stopListPoll() {
+    if (listPollTimer) {
+      clearInterval(listPollTimer);
+      listPollTimer = null;
+    }
+  }
+
+  async function refreshCasesFromApi() {
+    const data = await fetchJson<{ cases: CaseRow[] }>("/api/cases");
+    allCases.splice(0, allCases.length, ...data.cases);
+  }
+
+  function syncListPoll() {
+    if (!allCases.some(isPipelineActive)) {
+      stopListPoll();
+      return;
+    }
+    if (listPollTimer) return;
+    listPollTimer = setInterval(async () => {
+      try {
+        await refreshCasesFromApi();
+        renderTable();
+      } catch {
+        /* ignore transient errors */
+      }
+    }, 2000);
+  }
+
   function renderTable() {
     const cases = filteredCases();
     const tbody = document.querySelector(".cl-table tbody") as HTMLElement;
@@ -250,6 +285,7 @@ export async function renderList(nav: (path: string) => void): Promise<void> {
     if (countEl) countEl.textContent = `${cases.length} / ${allCases.length} 例`;
     _wireRowEvents();
     _updateSelectionUI();
+    syncListPoll();
   }
 
   function _wireRowEvents() {

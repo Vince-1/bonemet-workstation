@@ -10,7 +10,7 @@ from win_uninstall_common import (
     DEFAULT_VERSION,
     DISPLAY_NAME,
     PUBLISHER,
-    START_MENU_FOLDER,
+    app_icon_ico,
 )
 
 
@@ -22,47 +22,6 @@ def _version() -> str:
     return os.environ.get("BONEMET_VERSION", DEFAULT_VERSION).strip() or DEFAULT_VERSION
 
 
-def _programs_dir() -> Path:
-    appdata = os.environ.get("APPDATA", "")
-    if not appdata:
-        raise RuntimeError("APPDATA not set")
-    return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
-
-
-def _shortcut(target: Path, link: Path, description: str) -> None:
-    import subprocess
-
-    link.parent.mkdir(parents=True, exist_ok=True)
-    ps = (
-        "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK);"
-        f"$s.TargetPath = '{target}';"
-        f"$s.WorkingDirectory = '{target.parent}';"
-        f"$s.Description = '{description}';"
-        "$s.Save()"
-    )
-    subprocess.run(
-        ["powershell", "-NoProfile", "-Command", ps],
-        env={**os.environ, "LNK": str(link)},
-        check=False,
-    )
-
-
-def _create_start_menu_shortcuts(root: Path, menu_dir: Path) -> None:
-    launch = root / "安装并启动.bat"
-    stop = root / "停止BoneMet.bat"
-    reinstall = root / "重新安装.bat"
-    uninstall = root / "卸载.bat"
-    entries = (
-        (launch, "启动 BoneMet"),
-        (stop, "停止 BoneMet"),
-        (reinstall, "重新安装 BoneMet"),
-        (uninstall, "卸载 BoneMet"),
-    )
-    for bat, label in entries:
-        if bat.is_file():
-            _shortcut(bat, menu_dir / f"{label}.lnk", label)
-
-
 def register() -> None:
     if sys.platform != "win32":
         print("skip: not Windows")
@@ -72,6 +31,11 @@ def register() -> None:
     if (root / "unins000.exe").is_file():
         print("skip: Inno Setup install (unins000.exe present)")
         return
+
+    scripts_dir = root / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from win_shortcuts import install_shortcuts
 
     import winreg
 
@@ -90,14 +54,13 @@ def register() -> None:
         winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, str(root))
         winreg.SetValueEx(key, "UninstallString", 0, winreg.REG_SZ, cmd)
         winreg.SetValueEx(key, "QuietUninstallString", 0, winreg.REG_SZ, f"{cmd} /SILENT")
-        icon = root / "安装并启动.bat"
-        if icon.is_file():
-            winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, str(icon))
+        ico = app_icon_ico(root)
+        if ico:
+            winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, str(ico))
         winreg.SetValueEx(key, "NoModify", 0, winreg.REG_DWORD, 1)
         winreg.SetValueEx(key, "NoRepair", 0, winreg.REG_DWORD, 1)
 
-    menu_dir = _programs_dir() / START_MENU_FOLDER
-    _create_start_menu_shortcuts(root, menu_dir)
+    install_shortcuts(root, desktop=True)
     print(f"registered uninstall: {DISPLAY_NAME} ({version})")
 
 

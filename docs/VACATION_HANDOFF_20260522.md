@@ -8,7 +8,7 @@
 |------|------|------|
 | `make api` | ✅ | FastAPI :8080 |
 | `make worker` | ✅ | **默认** `scripts/run_worker.sh` → `python-runtime` |
-| `make web` | ✅ | :5173 |
+| `make web` | ✅ | :10123 |
 | 主线 B YOLO | ✅ | `install_models.sh` + registry |
 | 复核 SPA | ✅ | 单屏双图、框编辑、自动保存、签发 |
 | DICOM 导入 | ✅ | 单文件正反两层 |
@@ -44,7 +44,7 @@ make web              # 终端 3
 
 ## 归来后建议操作（5 分钟）
 
-1. 打开 http://localhost:5173 ，导入或打开已有病例，点 **接受其余 AI** 看 triage 是否符合预期。
+1. 打开 http://localhost:10123 ，导入或打开已有病例，点 **接受其余 AI** 看 triage 是否符合预期。
 2. `GET http://localhost:8080/health` 确认 `models.ok: true`。
 3. 审阅 [PENDING_USER_REVIEW.md](PENDING_USER_REVIEW.md) 中 **R-11～R-15**（院方形态、报告回写、脱敏等）。
 4. 若需 GPU：`config/local.yaml` 设 `detect_device: "0"`，worker 必须在 `python-runtime` 下运行。

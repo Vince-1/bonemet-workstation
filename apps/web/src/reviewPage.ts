@@ -1,4 +1,11 @@
 import { $, fetchJson, caseApi, casePage, DISCLAIMER_COMPACT, type CaseRow, type CaseDetail } from "./helpers";
+import {
+  isPipelineActive,
+  pipelineProgressBarHtml,
+  pipelineProgressPercent,
+  pipelineProgressText,
+  type PipelineProgress,
+} from "./pipelineProgress";
 import { ReviewEditor, type Box, type BonePolygonItem, type EditorOp } from "./reviewEditor";
 import { showReportPreview } from "./reportPreview";
 
@@ -43,6 +50,42 @@ function effectiveSignState(): ReportSignState {
   return "current";
 }
 
+/** 重新推理选项；取消返回 null */
+function showRerunPipelineDialog(): Promise<{ rerunBoneSeg: boolean } | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "bm-rerun-overlay";
+    overlay.innerHTML = `
+      <div class="bm-rerun-modal" role="dialog" aria-labelledby="bmRerunTitle">
+        <h3 id="bmRerunTitle" class="bm-rerun-title">重新推理</h3>
+        <p class="bm-rerun-desc">将用新模型结果覆盖当前已保存的病灶框，并重新匹配骨骼归属。</p>
+        <label class="bm-rerun-check">
+          <input type="checkbox" id="bmRerunBoneSeg" />
+          <span>重新推理骨骼分割</span>
+        </label>
+        <p class="bm-rerun-hint">未勾选时保留现有骨骼区域，仅重跑病灶检测（更快）。</p>
+        <div class="bm-rerun-actions">
+          <button type="button" class="bm-rerun-cancel">取消</button>
+          <button type="button" class="bm-rerun-ok primary">开始推理</button>
+        </div>
+      </div>`;
+    const close = (value: { rerunBoneSeg: boolean } | null) => {
+      overlay.remove();
+      resolve(value);
+    };
+    overlay.querySelector(".bm-rerun-cancel")?.addEventListener("click", () => close(null));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(null);
+    });
+    overlay.querySelector(".bm-rerun-ok")?.addEventListener("click", () => {
+      const cb = overlay.querySelector("#bmRerunBoneSeg") as HTMLInputElement;
+      close({ rerunBoneSeg: !!cb?.checked });
+    });
+    document.body.appendChild(overlay);
+    (overlay.querySelector(".bm-rerun-ok") as HTMLButtonElement)?.focus();
+  });
+}
+
 function updateSignButtonUI() {
   const btn = document.getElementById("btnSign");
   if (!btn) return;
@@ -66,6 +109,25 @@ function setSaveStatus(text: string) {
     el.textContent = text;
     el.classList.toggle("err", /失败|错误|error/i.test(text));
   }
+}
+
+function updatePipelineProgressUI(meta: {
+  pipeline_status?: string;
+  pipeline_progress?: PipelineProgress;
+}) {
+  const wrap = document.getElementById("pipelineProgressWrap");
+  const barHost = document.getElementById("pipelineProgressBar");
+  const label = document.getElementById("pipelineProgressLabel");
+  if (!wrap || !barHost || !label) return;
+  if (!isPipelineActive(meta)) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  const prog = meta.pipeline_progress;
+  const pct = pipelineProgressPercent(prog);
+  barHost.innerHTML = pipelineProgressBarHtml(pct);
+  label.textContent = pipelineProgressText(meta.pipeline_status, prog);
 }
 
 function setBenchHint(text: string) {
@@ -129,6 +191,7 @@ export async function renderCase(uid: string, nav: (path: string) => void): Prom
     patient_display_id?: string;
     status?: string;
     pipeline_status?: string;
+    pipeline_progress?: PipelineProgress;
     rev?: number;
   };
   reviewRev = meta?.rev ?? review?.rev ?? 0;
@@ -186,6 +249,10 @@ export async function renderCase(uid: string, nav: (path: string) => void): Prom
           <button type="button" id="bmBtnInvert" class="bm-toggle-btn active">反色</button>
           <button type="button" id="btnPreview" class="bm-toggle-btn">报告</button>
         </div>
+        <div class="bm-pipe-wrap" id="pipelineProgressWrap" hidden>
+          <div id="pipelineProgressBar"></div>
+          <span class="bm-pipe-label" id="pipelineProgressLabel"></span>
+        </div>
         <span class="bm-bench-status" id="saveStatus"></span>
       </div>
       <div class="bm-layout">
@@ -202,7 +269,7 @@ export async function renderCase(uid: string, nav: (path: string) => void): Prom
             <div class="bm-change-summary">${fromInference ? "显示：最新推理" : "显示：已保存修改"} · 病灶 ${boxN}</div>
             ${boxWarnings.length ? `<div class="bm-box-warn">${boxWarnings.map((w) => `<div>${w}</div>`).join("")}</div>` : ""}
             <label class="bm-pair-toggle"><input type="checkbox" id="pairMode"/> 配对模式</label>
-            <label class="bm-pair-toggle"><input type="checkbox" id="reportMode"/> 报告模式</label>
+            <label class="bm-pair-toggle"><input type="checkbox" id="reportMode" checked/> 报告模式</label>
           </div>
           <div class="bm-lists-cols">
             <div class="bm-panel-section">
@@ -254,7 +321,7 @@ export async function renderCase(uid: string, nav: (path: string) => void): Prom
   }
 
   let pairedMode = false;
-  let reportMode = false;
+  let reportMode = true;
   function isPaired() { return pairedMode; }
 
   type AnalysisLesion = {
@@ -752,7 +819,7 @@ export async function renderCase(uid: string, nav: (path: string) => void): Prom
     },
   });
   editor.mountCombined($("#cvCombined") as HTMLCanvasElement);
-  refreshLesionList();
+  refreshAllLists();
 
   for (const view of ["front", "back"] as const) {
     editor.loadOverlay(
@@ -770,7 +837,56 @@ export async function renderCase(uid: string, nav: (path: string) => void): Prom
     })
     .catch(() => {});
 
-  if (boxWarnings.length) {
+  let pipelinePollTimer: ReturnType<typeof setInterval> | null = null;
+
+  function stopPipelinePoll() {
+    if (pipelinePollTimer) {
+      clearInterval(pipelinePollTimer);
+      pipelinePollTimer = null;
+    }
+  }
+
+  function startPipelinePoll() {
+    if (pipelinePollTimer) return;
+    const maxWait = 600000;
+    const t0 = Date.now();
+    pipelinePollTimer = setInterval(async () => {
+      try {
+        const detail = await fetchJson<CaseDetail>(caseApi(uid));
+        const m = detail.data["meta.json"] as {
+          pipeline_status?: string;
+          pipeline_progress?: PipelineProgress;
+        };
+        updatePipelineProgressUI(m);
+        const st = m?.pipeline_status || "";
+        if (st === "ready") {
+          stopPipelinePoll();
+          await renderCase(uid, nav);
+          setSaveStatus("推理完成，已刷新");
+          return;
+        }
+        if (st === "failed") {
+          stopPipelinePoll();
+          setSaveStatus("推理失败，请查看 worker 日志");
+          return;
+        }
+        setSaveStatus(pipelineProgressText(st, m.pipeline_progress));
+        if (Date.now() - t0 > maxWait) {
+          stopPipelinePoll();
+          setSaveStatus("推理超时，请确认 make worker 已启动后刷新");
+        }
+      } catch (e) {
+        stopPipelinePoll();
+        setSaveStatus(String(e));
+      }
+    }, 2000);
+  }
+
+  updatePipelineProgressUI(meta);
+  if (isPipelineActive(meta)) {
+    startPipelinePoll();
+    setSaveStatus(pipelineProgressText(meta.pipeline_status, meta.pipeline_progress));
+  } else if (boxWarnings.length) {
     setSaveStatus(boxWarnings[0]);
   } else if (seededFromInference) {
     setSaveStatus("最新推理 · 修改后请保存");
@@ -883,47 +999,22 @@ export async function renderCase(uid: string, nav: (path: string) => void): Prom
   });
 
   $("#btnRerun").addEventListener("click", async () => {
-    if (
-      reviewRev > 0 &&
-      !confirm("重推理将用新模型结果覆盖当前已保存的框，是否继续？")
-    ) {
-      return;
-    }
+    const opts = await showRerunPipelineDialog();
+    if (!opts) return;
     setSaveStatus("推理排队中…");
+    updatePipelineProgressUI({
+      pipeline_status: "queued",
+      pipeline_progress: { label: "排队等待 worker…", percent: 0, step: 0, total_steps: 1 },
+    });
     await fetchJson(caseApi(uid, "/run_pipeline"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reset_review: true }),
+      body: JSON.stringify({
+        reset_review: true,
+        rerun_bone_seg: opts.rerunBoneSeg,
+      }),
     });
-    const pollMs = 2000;
-    const maxWait = 600000;
-    const t0 = Date.now();
-    const timer = setInterval(async () => {
-      try {
-        const detail = await fetchJson<CaseDetail>(caseApi(uid));
-        const meta = detail.data["meta.json"] as { pipeline_status?: string };
-        const st = meta?.pipeline_status || "";
-        if (st === "ready") {
-          clearInterval(timer);
-          await renderCase(uid, nav);
-          setSaveStatus("推理完成，已刷新");
-          return;
-        }
-        if (st === "failed") {
-          clearInterval(timer);
-          setSaveStatus("推理失败，请查看 worker 日志");
-          return;
-        }
-        setSaveStatus(st === "running" ? "推理中…" : `状态: ${st}`);
-        if (Date.now() - t0 > maxWait) {
-          clearInterval(timer);
-          setSaveStatus("推理超时，请确认 make worker 已启动后刷新");
-        }
-      } catch (e) {
-        clearInterval(timer);
-        setSaveStatus(String(e));
-      }
-    }, pollMs);
+    startPipelinePoll();
   });
   $("#btnResetInf").addEventListener("click", async () => {
     if (!confirm("将用最新推理结果覆盖当前框（仅未保存修改时可用），继续？")) return;

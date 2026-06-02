@@ -40,6 +40,9 @@ ROOT_PROGRAM_NAMES = frozenset(
         "停止BoneMet.bat",
         "卸载.bat",
         "重新安装.bat",
+        "修复模型配置.bat",
+        "bonemet.ico",
+        "bonemet.png",
         "使用说明.txt",
         MANIFEST_NAME,
         ".bonemet_installed",
@@ -123,9 +126,10 @@ def _should_skip_prune(rel_posix: str, opts) -> bool:
             return True
 
     if not opts.reinstall_deps:
-        if rel_posix.startswith("python/Lib/site-packages/"):
+        # 保留 pip 环境：安装标记 + 已安装的 python 树（避免 prune 删掉 .bonemet_installed 导致下次全量 pip）
+        if rel_posix == ".bonemet_installed":
             return True
-        if rel_posix.startswith("python/Scripts/"):
+        if rel_posix.startswith("python/"):
             return True
 
     return False

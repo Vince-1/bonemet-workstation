@@ -11,9 +11,20 @@ def queue_file(data_root: Path) -> Path:
     return p
 
 
-def enqueue_pipeline(data_root: Path, study_uid: str, *, reset_review: bool = False) -> None:
+def enqueue_pipeline(
+    data_root: Path,
+    study_uid: str,
+    *,
+    reset_review: bool = False,
+    rerun_bone_seg: bool = True,
+) -> None:
     line = json.dumps(
-        {"type": "pipeline", "study_uid": study_uid, "reset_review": reset_review},
+        {
+            "type": "pipeline",
+            "study_uid": study_uid,
+            "reset_review": reset_review,
+            "rerun_bone_seg": rerun_bone_seg,
+        },
         ensure_ascii=False,
     )
     path = queue_file(data_root)

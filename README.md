@@ -58,7 +58,7 @@ make install-desktop && make install-models
 
 ```bash
 make install && make setup-demo
-make api · make worker · make web  → http://localhost:5173
+make api · make worker · make web  → http://localhost:10123
 ```
 
 详见 [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)。

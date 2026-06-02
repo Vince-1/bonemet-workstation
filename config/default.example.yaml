@@ -16,7 +16,7 @@ api:
   host: 0.0.0.0
   port: 10120
   cors_origins:
-    - http://localhost:5173
+    - http://localhost:10123
 
 worker:
   gpu_id: 0
@@ -29,7 +29,7 @@ worker:
     bone_seg_use_gpu: false
 
 web:
-  dev_port: 5173
+  dev_port: 10123
   api_base: http://localhost:10120
 
 queue:

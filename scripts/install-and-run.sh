@@ -110,6 +110,10 @@ first_install() {
 
   local apps_dir="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
   mkdir -p "$apps_dir"
+  icon_line=""
+  if [[ -f "$ROOT/bonemet.png" ]]; then
+    icon_line="Icon=$ROOT/bonemet.png"
+  fi
   cat >"$apps_dir/bonemet-workstation.desktop" <<EOF
 [Desktop Entry]
 Type=Application
@@ -119,6 +123,7 @@ Exec=env BONEMET_GUI=1 "$ROOT/安装并启动.sh"
 Path=$ROOT
 Terminal=false
 Categories=MedicalSoftware;Science;
+$icon_line
 EOF
 
   if [[ -f "$ROOT/data/models/registry.yaml" && -f "$ROOT/data/models/detect/model.onnx" ]]; then

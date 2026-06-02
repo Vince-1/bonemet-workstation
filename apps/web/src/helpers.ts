@@ -1,8 +1,11 @@
+import type { PipelineProgress } from "./pipelineProgress";
+
 export type CaseRow = {
   study_uid: string;
   patient_display_id?: string;
   status?: string;
   pipeline_status?: string;
+  pipeline_progress?: PipelineProgress;
   review_task_count?: number;
   rev?: number;
   created_at?: string;

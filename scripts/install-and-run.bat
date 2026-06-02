@@ -19,11 +19,13 @@ if exist "%BUNDLED_PY%" (
   set "PY=python"
 )
 
+rem Setup 升级结束自动启动、或显式跳过安装时，不得因缺少标记文件而重装 pip
+if defined BONEMET_FORCE_INSTALL goto do_install
+if defined BONEMET_SKIP_INSTALL goto start_services
+
 if not exist "%MARKER%" goto do_install
 
 rem --- Already installed: ask whether to reinstall ---
-if defined BONEMET_FORCE_INSTALL goto do_install
-if defined BONEMET_SKIP_INSTALL goto start_services
 
 echo.
 echo ========================================
@@ -133,6 +135,14 @@ exit /b 1
 
 :start_services
 if not exist "config\local.yaml" copy /Y config\default.example.yaml config\local.yaml
+
+"%PY%" "%ROOT%\scripts\ensure_models.py" --repair-registry >>"%LOG_DIR%\install.log" 2>&1
+if errorlevel 1 (
+  echo.
+  echo WARNING: AI models not ready. Run 修复模型配置.bat or copy data\models from release pack.
+  echo See %LOG_DIR%\install.log
+  echo.
+)
 
 "%PY%" "%ROOT%\scripts\win_health_check.py" >nul 2>&1
 if not errorlevel 1 (

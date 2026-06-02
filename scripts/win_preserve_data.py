@@ -14,6 +14,7 @@ DATA_REL_PATHS = (
     "data/export",
     "data/incoming",
     "data/queue",
+    "data/logs",
     "config/local.yaml",
 )
 
@@ -24,8 +25,8 @@ MODELS_REL = "data/models"
 class PreserveOptions:
     keep_data: bool = True
     keep_models: bool = False
-    # False = 保留已安装的 pip 依赖（默认）；True = 重新执行 pip install
-    reinstall_deps: bool = False
+    # True = 重新执行 pip install（默认）；False = 保留已安装的 pip 依赖
+    reinstall_deps: bool = True
 
     @classmethod
     def from_env(cls) -> PreserveOptions:
@@ -40,7 +41,7 @@ class PreserveOptions:
         return cls(
             keep_data=_flag("BONEMET_KEEP_DATA", True),
             keep_models=_flag("BONEMET_KEEP_MODELS", False),
-            reinstall_deps=_flag("BONEMET_REINSTALL_DEPS", False),
+            reinstall_deps=_flag("BONEMET_REINSTALL_DEPS", True),
         )
 
 
@@ -128,13 +129,18 @@ def clear_for_reinstall(root: Path, opts: PreserveOptions) -> Path | None:
     if opts.keep_data or opts.keep_models:
         staging = backup_to_staging(root, opts)
 
-    if not opts.keep_models and (root / MODELS_REL).exists():
+    if not opts.keep_data:
+        data_dir = root / "data"
+        if data_dir.exists():
+            shutil.rmtree(data_dir, ignore_errors=True)
+            print("removed:", data_dir)
+        local_cfg = root / "config" / "local.yaml"
+        if local_cfg.is_file():
+            local_cfg.unlink()
+            print("removed:", local_cfg)
+    elif not opts.keep_models and (root / MODELS_REL).exists():
         shutil.rmtree(root / MODELS_REL, ignore_errors=True)
         print("removed:", root / MODELS_REL)
-
-    if not opts.keep_data:
-        remove_paths(root, list(DATA_REL_PATHS))
-        print("removed user data under data/ and config/local.yaml")
 
     marker = root / ".bonemet_installed"
     if opts.reinstall_deps:
@@ -222,9 +228,9 @@ def prompt_preserve_options(title: str) -> PreserveOptions:
 
     r3 = ctypes.windll.user32.MessageBoxW(
         0,
-        "是否重新安装 Python 依赖 (pip)？\n\n选「否」保留当前已装依赖（推荐，较快）。\n选「是」将重新下载安装 requirements（约 10～30 分钟，需联网）。",
+        "是否重新安装 Python 依赖 (pip)？\n\n选「是」将重新下载安装 requirements（约 10～30 分钟，需联网）。\n选「否」保留当前已装依赖（较快）。",
         title,
-        MB_YESNO | MB_DEFBUTTON2,
+        MB_YESNO | MB_DEFBUTTON1,
     )
     reinstall_deps = r3 == IDYES
 
